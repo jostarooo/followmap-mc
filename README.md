@@ -251,6 +251,38 @@ cmd 解析 `.bat` 时按**字节**推进文件指针；中文行的字节数与�
 
 ---
 
+## 版本与发布
+
+**本仓库是唯一发布出口：所有新版本都推送到这里** —— `https://github.com/jostarooo/followmap-mc`（private），默认分支 `main`。
+
+发布 = 双击 `app\发布到GitHub.bat`，它会依次做三件事：
+
+1. 重编模组 jar（`build_mod.py --no-install`）
+2. 提交本地改动（自动写提交信息：时间 + 模组版本 + 变更清单）
+3. 把整个 `git HEAD` 树上传（`blobs → tree → commit → ref`）
+
+只改文档、没动模组时用 `发布到GitHub.bat --no-build` 跳过第 1 步；想先看看要传什么，用 `python app\push_github.py --dry-run`（不联网）。
+
+**为什么不用 `git push`**：本机 `github.com` 网页域名被代理挡住（超时），但 `api.github.com` 可达，于是改走 GitHub 官方 **Git Data API**，效果与一次 `git push` 等同。在能正常连 github.com 的机器上，`git remote add origin <url> && git push -u origin main` 同样可用，历史与这边一致。
+
+**需要一个 GitHub token**（`push_github.py` 按此顺序查找）：
+
+1. 环境变量 `GH_TOKEN` / `GITHUB_TOKEN`
+2. 文件 `%USERPROFILE%\.followmap-gh-token`（里面只放一行 token）
+3. 命令行 `python app\push_github.py --token xxx`
+
+细粒度 token 必须勾对两项，**只做第一项会以 403 失败**：
+
+| 设置 | 要求 | 漏了的症状 |
+|---|---|---|
+| Repository access | 包含本仓库（选 *All repositories* 最省事） | 仓库直接 404 |
+| Permissions → Repository permissions → **Contents** | **Read and write** | `POST /git/blobs` → 403 `Resource not accessible` |
+| 创建仓库 | 不需要 | 细粒度 token 本来就建不了库，仓库已在浏览器建好 |
+
+> 另外两条实测出来的 API 行为，别当 bug：① 零提交的空仓库上 Git Data API 会 `409 Git Repository is empty`（脚本会先用 Contents API 放 `.gitkeep` 引导激活）；② GitHub 存 commit message 时会去掉结尾换行，所以远端 commit 的 SHA 与本地同内容提交必然不同，**但 tree SHA 相同、文件逐字节一致**。
+
+---
+
 ## 合规边界
 
 本项目**只读**、不做任何自动化：

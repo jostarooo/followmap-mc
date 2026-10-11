@@ -8,7 +8,8 @@ __pycache__/
 
 # ---- 本地构建产物 ----
 app/coordbridge/build/
-app/coordbridge/coordbridge-1.2.0.jar
+# 模组 jar 本身是**要入库的**（下载即用）。升版本时记得删掉上一版 jar，
+# 别让仓库里同时躺着两个 —— 两个同 mod id 的 jar 会让 Fabric 拒绝加载整个模组。
 dist/
 app/_modtest/build/
 app/_modtest/bench-cache/
