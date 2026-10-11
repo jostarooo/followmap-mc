@@ -2,82 +2,69 @@
   "_note": [
     "方块传说 · 末地稀有遗迹指纹表（可编辑）",
     "",
+    "═══ v5（2026-10-11）：改为「直接方块 id 判据」═══",
+    "",
+    "背景：用户命题「末地出现黑石=巫师、出现石砖=白金」经 71124 个真机 chunk 全量检验",
+    "（验证记录第 12~13 节），方向对、id 需修正。v5 把每类的核心判据换成**实测独占的方块 id**：",
+    "",
+    "  巫师：polished_blackstone_bricks（磨制黑石砖）—— 37/37 座巫师独有，武士/白金 0；",
+    "        原料黑石不行（武士 29/35 座也有），普通石砖不行（巫师自己才有）。",
+    "  白金：infested_stone_bricks（虫蛀石砖）—— 4/4 座白金独有，其余全服窗口最大值 0",
+    "        （巫师旁偶发几扇是白金邻居的，被纯度层挡住）。",
+    "  武士：无独占 id（末地石砖系与紫珀殿/幽匿殿重叠、黑石系与巫师重叠），保留",
+    "        @end_brick>=30 做主体，any 首两条换成「黑石系装饰件出现即可」：",
+    "        blackstone_stairs（35/35 座都有，其余建筑窗口最大 1）或",
+    "        gilded_blackstone（33/35 座，其余建筑 0）。紫珀殿/幽匿殿两样都没有 => 挡住串类。",
+    "        后三条沿用 v4 的兜底通路（samurai_core / netherrack 占比 / 三件套）：",
+    "        structures_DIM1.json 的簇只存 top-10 方块，stairs/gild 这类小计数会被截断，",
+    "        离线 A 段回归（1274 簇）必须靠兜底通路；真机上它们也不产生误报。",
+    "",
+    "阈值定标（_modtest/probe_blockid_rule3.py，窗口级阈值扫描）：",
+    "  巫师 T=10~100 结果完全相同：报 38 组、37 真 + 1 座「只加载了一半的真巫师」",
+    "  （(4586,-46944)，见验证记录第 13 节），**0 真误报、0 漏检**。取 20：",
+    "  完整实例窗口最低 138，20 可扛约 85% 的地形淹没（v4 的 100 只扛 ~28%）。",
+    "  白金 T=1~35 结果完全相同：报 4 组、4 真、0 误、0 漏。取 10（实例窗口最低 35，",
+    "  可扛 ~70% 淹没；v4 的 35 + red_wool>=3 双锚点一淹就死）。",
+    "  武士 @end_brick>=30 + (stairs>=1 | gild>=1)：报 36 组、35 真、漏 0；",
+    "  唯一 1 组非武士候选（紫珀殿边缘窗，stairs=1）被纯度 0.80 挡住。",
+    "",
     "判据四条，都要满足：",
     "  1) anchors 里每一项都要达标（窗口内计数）。key 可以是单个方块名",
     "     （\"minecraft:xxx\"），也可以是「家族合计」写法 \"@家族名\"，见下面 groups。",
-    "  2) ratios 里每一项都要达标（**占比**，见下）。key 同样支持 \"@家族名\"。",
-    "  3) any 里**至少有一组**要全部达标（同一建筑的不同变体，用可选组吸收）；为空则跳过。",
-    "  4) 纯度 = 本类型特征方块数量 / 窗口内全部人造方块数量  >= min_purity",
-    "     （纯度用来把同样用下界岩/黑石的小遗迹区分开）",
+    "  2) ratios 里每一项都要达标（**占比**）。key 同样支持 \"@家族名\"。（v5 三类都留空）",
+    "  3) any 里**至少有一组**要全部达标；为空则跳过。",
+    "  4) 纯度 = 本类型特征方块数量 / 窗口内全部人造方块数量  >= min_purity(0.80)",
+    "     纯度在 v5 里仍是必须的：它挡住「独占 id 出现在邻居窗口里」的串类",
+    "     （实测紫珀殿边缘窗口 pbricks 可到 115~227，全靠纯度分开）。",
     "",
-    "为什么需要 ratios（占比锚点）——2026-10-10 真机实测：",
-    "  该服务器把遗迹刷在地形上，**有概率被地形方块淹没**。淹没 = 该列地表方块变成",
-    "  end_stone（算自然方块，不计入直方图）-> **该建筑所有用料的计数等比缩小**。",
-    "  于是：",
-    "    纯度 = 本类型用料 / 窗口内全部人造方块   —— 等比缩小后**不变**",
-    "    占比 = 主料 / 本类型用料                —— 同样**不变**",
-    "    绝对计数                                —— 会缩小，所以**绝对数锚点必然先倒**",
-    "  实测（把真值窗口按比例缩小，按遗迹统计）：",
-    "    巫师 旧判据: 淹没 40% 后 17->8 座，50% 后归零",
-    "    巫师 新判据: 淹没 70% 仍保住 18 座",
-    "    武士 旧判据: 淹没 40% 后 7->4 座，50% 后归零",
-    "    白金 旧判据: 淹没 50% 后 2->0 座（新判据 50% 仍全保住）",
-    "  所以：**硬特征优先写成 ratios**，绝对数只留一个很低的「最小规模」门槛。",
-    "  占比的分母是「本类型用料总量」（= 纯度的分子），不是窗口内全部方块。",
+    "── 历史结论（仍然成立，别重蹈覆辙）──",
     "",
-    "  **占比通路必须和「次要特征齐备」并列放在 any 里**（2026-10-10 过拟合回退的教训）：",
-    "    只留占比会漏掉「完整露出但配料比例不同」的大实例——真机有座完整巫师",
-    "    （polished_blackstone_bricks=493 / blackstone=246 / cracked=141），占比只有 0.245，",
-    "    被 0.26 卡掉；在 coordbridge 单点标出来的阈值，换到 Xaero region 上命中 57->51。",
-    "    修法不是调低阈值（会放进噪声），而是做成「占比够高 **或** 次要特征齐备」两条通路：",
-    "    被淹没的走占比、完整实例走次要特征，两边都不漏。修后 Xaero 上「旧过新不过 = 0」。",
+    "地形淹没 = 尺度缩放（2026-10-10 真机实测）：该服务器把遗迹刷在地形上，有概率被",
+    "  地形方块淹没。淹没 = 该列地表方块变成 end_stone（自然方块，不计入直方图）",
+    "  => 所有用料计数**等比缩小**：纯度不变、占比不变、绝对计数 × s。",
+    "  v5 的对策：把绝对数阈值压到「独占 id 的出现量级」（20/10），淹没余量远大于 v4；",
+    "  纯度的不变性继续兜底。占比锚点（ratios）在独占 id 面前是多余的，故清空。",
     "",
-    "为什么武士加了一条「恒定构件」通路——2026-10-10 用户第二次报漏检：",
-    "  先弄清模组到底记了什么：每个 chunk 存 256 列的地表，**只有高度高于原地形的列**",
-    "  才有方块名，其余写 NODATA（真机实测：NODATA 列高度恒为 56/57 的地形基准，",
-    "  有值列高度 66~131）。所以直方图 = 「这座建筑高出地形的那部分」的用料。",
-    "  再看真机 17 座武士实例，发现其用料分成两半：",
-    "    **恒定构件**（每次都完整露出）：末地石砖墙 ~38、净下界砖墙 ~30、诡异台阶 ~27、",
-    "                                绯红系 ~48~82  -> @samurai_core 合计 116~197",
-    "    **可变构件**（有时全被地形埋掉）：下界岩 5~200、磨制玄武岩 0~68",
-    "  17 座里 9 座的下界岩/玄武岩露出量极低甚至为 0（(4763,-39208) 与 (37067,49208)",
-    "  两座完全为 0），旧判据把磨制玄武岩写成 anchors 硬锚 -> 这 9 座全漏。",
-    "  修法：把 anchors 收紧到只有 @end_brick，另开一条「@samurai_core >= 90」通路。",
-    "  分界实测：17 座武士的 core 为 116~197，其余所有类型的建筑（巫师/白金/",
-    "  紫珀殿/幽匿殿）core 最大只有 66 —— 间隔很宽，阈值取 90 很安全。",
-    "  core 里**故意不含 end_stone_bricks、也不含 nylium**：紫珀殿有大量 end_stone_bricks、",
-    "  巫师有大量 warped_nylium，放进去就会互相串类。",
+    "为什么锚点写成「家族合计」仍必要（武士）——2026-10-09 真机复现的漏检：",
+    "  同一座建筑的实例之间，露在地表的**家族成员**会置换（末地石砖系总量稳定 64~67，",
+    "  拆开是 end_stone_bricks 15 + wall 38 + stairs 11）。武士主体没有独占单 id，",
+    "  只能继续用 @end_brick 家族合计。",
     "",
-    "  **这里用绝对数、而不用占比**（和上面 ratios 的结论相反）——因为被埋掉的只是",
-    "  低处的下界岩/玄武岩，恒定构件在高处，实例之间几乎不缩水（116~197 全是满配）。",
-    "  同理「dirt」也要并进用料表：武士的修行地有个土质演武场，真机每座都有 18~33 列",
-    "  dirt 且高度都在地形之上，是建筑本身的一部分（不放进去纯度会虚低 0.79 而漏检）。",
-    "",
-    "为什么锚点必须写成「家族合计」——2026-10-09 真机复现的漏检：",
-    "  模组的每个 chunk 只存「每列的地表方块」，同一座建筑换一个实例，露出地表的",
-    "  **家族成员会置换**。真机 4 个武士实例的「末地石砖系」总量稳定在 64~67，",
-    "  但拆开是 end_stone_bricks 15 + end_stone_brick_wall 38 + end_stone_brick_stairs 11；",
-    "  旧指纹要求 end_stone_bricks >= 90（该数字来自另一个变体）→ 4 个实例全被漏掉。",
-    "  同理 polished_basalt 有个实例只有 11（旧阈值 20）。",
-    "  把阈值钉在单个方块名上，就等于赌「所有实例都露同一块砖」。",
+    "可疑点 (4586,-46944) 的教训（验证记录第 13 节）：",
+    "  那是一座只被玩家加载了一半的巫师（西侧 chunk 未加载）。**别为半成品数据放宽阈值**：",
+    "  半座建筑的配比会被系统性扭曲，数据补齐后判据自然报出。",
     "",
     "窗口 = window_chunks x window_chunks 个区块（5 => 80x80 方块），以候选点为中心。",
-    "阈值按真实实例实测值 × 约 0.4~0.6 余量定，改大了会漏、改小了会误报。",
-    "",
     "标定依据：",
     "  app/structures_DIM1.json —— 末地 1484 个 region 全量扫描出的 1274 个候选簇",
-    "  ~/.coordbridge/chunks   —— 真机落盘的 4 万个 .bin（唯一能发现「成员置换/淹没」的数据源）",
+    "  ~/.coordbridge/chunks   —— 真机落盘的 71124 个 .bin（唯一能发现「成员置换/淹没」的数据源）",
     "",
     "min_purity 定标（真值 = 与分类器独立的余弦相似度 >= 0.90，1274 个候选簇）：",
     "  补全用料表 + 家族锚点 + 占比锚点之后，0.72~0.90 七档召回完全相同",
     "  （白金 13/13、武士 59/59、巫师 57/57，三类全部 100%），类型混淆全程 0 处。",
-    "  => 说明三类的区分靠的是硬特征本身，纯度阈值只负责「别把小遗迹算进来」。",
-    "  0.86 会掉到 80.7% 是**补家族锚点之前**的旧数据，现已不成立。",
-    "  采用区间 0.80~0.84；本表取 0.80（同类非典型命中较多，0.84 时略少，差别可忽略）。",
-    "「同类非典型命中」= 判为某类、独立余弦也认为是这一类，但余弦 < 0.90，",
-    "即同一类遗迹里偏小/变形的实例；不是误报。要更严就抬 min_purity。"
+    "  => 说明三类的区分靠的是硬特征本身，纯度阈值只负责「别把小遗迹算进来」。"
   ],
-  "version": 4,
+  "version": 5,
   "window_chunks": 5,
   "min_purity": 0.80,
   "dedupe_blocks": 96,
@@ -107,6 +94,17 @@
       "minecraft:end_stone_brick_stairs",
       "minecraft:end_stone_brick_slab"
     ],
+    "crimson": [
+      "minecraft:crimson_planks",
+      "minecraft:crimson_hyphae",
+      "minecraft:crimson_slab",
+      "minecraft:crimson_stairs",
+      "minecraft:crimson_fence",
+      "minecraft:crimson_nylium",
+      "minecraft:crimson_fungus",
+      "minecraft:crimson_roots",
+      "minecraft:crimson_door"
+    ],
     "stone_brick": [
       "minecraft:stone_bricks",
       "minecraft:stone_brick_stairs",
@@ -125,17 +123,6 @@
       "minecraft:mossy_stone_brick_stairs",
       "minecraft:mossy_stone_brick_slab",
       "minecraft:mossy_stone_brick_wall"
-    ],
-    "crimson": [
-      "minecraft:crimson_planks",
-      "minecraft:crimson_hyphae",
-      "minecraft:crimson_slab",
-      "minecraft:crimson_stairs",
-      "minecraft:crimson_fence",
-      "minecraft:crimson_nylium",
-      "minecraft:crimson_fungus",
-      "minecraft:crimson_roots",
-      "minecraft:crimson_door"
     ]
   },
 
@@ -147,23 +134,9 @@
       "sound": "drop_high",
       "desc": "灰白石造、严格方形对称；四角塔楼 + 中央神殿，正中一块红羊毛（红核）",
       "anchors": {
-        "minecraft:infested_stone_bricks": 35,
-        "minecraft:red_wool": 3
+        "minecraft:infested_stone_bricks": 10
       },
-      "any": [
-        {
-          "%@stone_brick": 0.30
-        },
-        {
-          "@stone_brick": 120,
-          "@mossy": 18
-        },
-        {
-          "@stone_brick": 120,
-          "minecraft:smooth_stone_slab": 10,
-          "minecraft:smooth_quartz_stairs": 10
-        }
-      ],
+      "any": [],
       "blocks": [
         "minecraft:stone_brick_stairs",
         "minecraft:stone_brick_slab",
@@ -194,6 +167,12 @@
         "@end_brick": 30
       },
       "any": [
+        {
+          "minecraft:blackstone_stairs": 1
+        },
+        {
+          "minecraft:gilded_blackstone": 1
+        },
         {
           "@samurai_core": 90
         },
@@ -267,18 +246,9 @@
       "sound": "drop_mid",
       "desc": "深色砖块体、直边、占地大；青色是稀疏晶体/发光点；有一条长斜向横梁",
       "anchors": {
-        "minecraft:polished_blackstone_bricks": 100
+        "minecraft:polished_blackstone_bricks": 20
       },
-      "any": [
-        {
-          "%minecraft:polished_blackstone_bricks": 0.26
-        },
-        {
-          "minecraft:cracked_polished_blackstone_bricks": 30,
-          "minecraft:blackstone": 55,
-          "minecraft:deepslate_bricks": 18
-        }
-      ],
+      "any": [],
       "blocks": [
         "minecraft:polished_blackstone_bricks",
         "minecraft:polished_blackstone_brick_wall",

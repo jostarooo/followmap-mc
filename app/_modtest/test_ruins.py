@@ -133,8 +133,10 @@ def part_a():
         old_p = sigs.min_purity
         if purity_override is not None:
             sigs.min_purity = purity_override
+        # v5 起白金锚点不再有 red_wool（直接 id 判据），此项扫描仅对 v4 配置有意义
         old_rw = None
-        if red_wool_override is not None:
+        if red_wool_override is not None and \
+                "minecraft:red_wool" in sigs.types["白金星殿"]["anchors"]:
             old_rw = sigs.types["白金星殿"]["anchors"]["minecraft:red_wool"]
             sigs.types["白金星殿"]["anchors"]["minecraft:red_wool"] = red_wool_override
         tp = {k: 0 for k in REF}
@@ -164,26 +166,32 @@ def part_a():
             sigs.types["白金星殿"]["anchors"]["minecraft:red_wool"] = old_rw
         return tp, loose, mismatch
 
+    has_rw = "minecraft:red_wool" in sigs.types["白金星殿"]["anchors"]
     print()
-    print("   min_purity   red_wool   白金星殿          武士的修行地        巫师的圣修所      同类   混淆")
+    print("   min_purity   %s   白金星殿          武士的修行地        巫师的圣修所      同类   混淆"
+          % ("red_wool" if has_rw else "        "))
     print("   " + "-" * 84)
-    for rw in (5, 3):
+    for rw in ((5, 3) if has_rw else (None,)):
         for p in (0.72, 0.76, 0.80, 0.84, 0.86, 0.90):
             tp, loose, mm = run(p, rw)
             cells = []
             for name in REF:
                 t = len(truth[name])
                 cells.append("%3d/%3d=%5.1f%%" % (tp[name], t, 100.0 * tp[name] / max(1, t)))
-            star = "  <=" if (rw == 3 and abs(p - sigs.min_purity) < 1e-9) else ""
-            print("   %.2f         %d        %s  %3d   %3d%s"
-                  % (p, rw, "  ".join(cells), loose, len(mm), star))
+            star = "  <=" if ((rw is None or rw == 3) and abs(p - sigs.min_purity) < 1e-9) else ""
+            print("   %.2f         %-8s %s  %3d   %3d%s"
+                  % (p, str(rw) if rw is not None else "-",
+                     "  ".join(cells), loose, len(mm), star))
         print()
 
     # 采用配置的最终结论
     tp, loose, mm = run()
-    print("   当前 ruins.json（min_purity=%.2f, red_wool=%d）:"
-          % (sigs.min_purity,
-             sigs.types["白金星殿"]["anchors"]["minecraft:red_wool"]))
+    if has_rw:
+        print("   当前 ruins.json（min_purity=%.2f, red_wool=%d）:"
+              % (sigs.min_purity,
+                 sigs.types["白金星殿"]["anchors"]["minecraft:red_wool"]))
+    else:
+        print("   当前 ruins.json（min_purity=%.2f, v5 直接 id 判据）:" % sigs.min_purity)
     for name in REF:
         t = len(truth[name])
         print("      %-8s 召回 %3d/%3d = %5.1f%%" % (name, tp[name], t,
@@ -671,11 +679,14 @@ REGRESSION = [
         "minecraft:polished_blackstone_slab": 9, "minecraft:obsidian": 9,
         "minecraft:smooth_basalt": 8, "minecraft:polished_deepslate_wall": 8,
         "minecraft:crying_obsidian": 6, "minecraft:dark_oak_fence": 4}),
-    # 负例（真机噪声里最像巫师的那两个，必须继续排除）：
-    #   ① 靠**占比**排除：pbrick 161（> 绝对下限），但主料占比只有 0.152；
-    #   ② 靠**绝对下限**排除：主料占比不低但 pbrick 只有 69。
-    #   两条新判据各被一个负例压住，缺一条就会放进来。
-    ("负例·黑石要塞（pbrick 161 但主料占比仅 0.152）", None, {
+    # ============ 2026-10-11 v5 直接 id 判据后，这两个「负例」已正名 ============
+    # 真机反查（_modtest/probe_negatives.py + v4 真值距离）：这两个窗口都距 v4 已识别
+    # 的巫师建筑仅 32 方块 —— 它们是**真巫师的边缘窗口**，不是独立建筑，更不是噪声。
+    # v4 靠 any 的占比 0.26 在窗口级压掉它们（当时是为了与 v4 行为对拍）；
+    # v5 判据（pbricks>=20 + 纯度）有意把它们报出来。生产上无害：
+    # 它们距建筑本体窗口 32 < dedupe_blocks 96，同一座建筑仍只 alert 一次
+    # （RuinWatcher._is_new 按已报位置去重）。
+    ("巫师/边缘窗（黑石要塞画像，距真巫师 32 方块）", "巫师的圣修所", {
         "minecraft:soul_soil": 310, "minecraft:blackstone": 181,
         "minecraft:polished_blackstone_bricks": 161, "minecraft:netherrack": 90,
         "minecraft:polished_blackstone": 84,
@@ -685,7 +696,7 @@ REGRESSION = [
         "minecraft:basalt": 28, "minecraft:cracked_polished_blackstone_bricks": 24,
         "minecraft:polished_blackstone_brick_slab": 21,
         "minecraft:polished_deepslate": 21}),
-    ("负例·黑石小屋（占比不低但 pbrick 仅 69）", None, {
+    ("巫师/边缘窗（黑石小屋画像，距真巫师 32 方块）", "巫师的圣修所", {
         "minecraft:blackstone": 215, "minecraft:polished_blackstone_bricks": 69,
         "minecraft:polished_blackstone": 63,
         "minecraft:polished_blackstone_brick_wall": 25,
