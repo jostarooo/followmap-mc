@@ -128,6 +128,7 @@ class FollowApp:
         self.demo.dim = None
         self.demo_pin = None
         self.ocr = None
+        self._ocr_gate_t = None    # auto 模式 OCR 门槛：bridge 连续失败起始时刻（None=未在失败中）
         self.mode = args.source
         self.demo_on = (args.source == "demo")
 
@@ -421,23 +422,39 @@ class FollowApp:
             f = self.bridge.poll()
             if f.ok:
                 self.source_name = "bridge"
+                self._ocr_gate_t = None     # bridge 恢复：OCR 门槛重新计时
                 return f
             self.notes.append("bridge: %s" % (f.note or "不可用"))
             if m == "bridge":
                 return f
 
         if m in ("auto", "ocr"):
-            if self.ocr is None:
-                self.ocr = S.OcrSource(dim=None,
-                                       interval=max(0.2, self.args.interval / 1000.0),
-                                       votes=self.args.votes)
-            f = self.ocr.poll()
-            if f.ok:
-                self.source_name = "ocr"
-                return f
-            self.notes.append("ocr: %s" % (f.note or "不可用"))
-            if m == "ocr":
-                return f
+            # ⚠️ 频闪修复（2026-10-11）：auto 下 OCR 必须「bridge 连续失败满 5 秒」才允许顶上。
+            # 原先 bridge 失败一帧（开 Esc 菜单/聊天栏 in_game=false、加载屏数据过期、
+            # JSON 截断瞬间）就立刻开始以 5 次/秒 PrintWindow 抓 GL 游戏窗口——
+            # 这会强制窗口内容走 DWM 重定向，是屏幕频闪的根源；且这些时刻坐标
+            # 本来就该冻结，OCR 抓了也没用。显式 --source ocr 不设门槛。
+            if m == "auto":
+                now = time.time()
+                if self._ocr_gate_t is None:
+                    self._ocr_gate_t = now
+                    allow_ocr = False       # 第一帧失败：只记时，不抓屏
+                else:
+                    allow_ocr = (now - self._ocr_gate_t) >= 5.0
+            else:
+                allow_ocr = True
+            if allow_ocr:
+                if self.ocr is None:
+                    self.ocr = S.OcrSource(dim=None,
+                                           interval=max(1.0, self.args.interval / 1000.0),
+                                           votes=self.args.votes)
+                f = self.ocr.poll()
+                if f.ok:
+                    self.source_name = "ocr"
+                    return f
+                self.notes.append("ocr: %s" % (f.note or "不可用"))
+                if m == "ocr":
+                    return f
 
         if m in ("manual", "demo"):
             return self.demo.poll() if m == "demo" else self.manual.poll()
