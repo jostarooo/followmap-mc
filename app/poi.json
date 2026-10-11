@@ -1,0 +1,272 @@
+[
+ {
+  "name": "候选遗迹 20086块",
+  "x": -384,
+  "z": -544,
+  "dim": "DIM1",
+  "mw": "mw$default",
+  "count": 20086,
+  "cells": 84
+ },
+ {
+  "name": "候选遗迹 17190块",
+  "x": 784,
+  "z": 280,
+  "dim": "DIM1",
+  "mw": "mw$default",
+  "count": 17190,
+  "cells": 106
+ },
+ {
+  "name": "候选遗迹 16829块",
+  "x": 280,
+  "z": -624,
+  "dim": "DIM1",
+  "mw": "mw$default",
+  "count": 16829,
+  "cells": 160
+ },
+ {
+  "name": "候选遗迹 5348块",
+  "x": 1728,
+  "z": -47944,
+  "dim": "DIM1",
+  "mw": "mw$default",
+  "count": 5348,
+  "cells": 51
+ },
+ {
+  "name": "候选遗迹 3425块",
+  "x": 43592,
+  "z": -48912,
+  "dim": "DIM1",
+  "mw": "mw$default",
+  "count": 3425,
+  "cells": 32
+ },
+ {
+  "name": "候选遗迹 2758块",
+  "x": 5816,
+  "z": -47608,
+  "dim": "DIM1",
+  "mw": "mw$default",
+  "count": 2758,
+  "cells": 25
+ },
+ {
+  "name": "候选遗迹 2706块",
+  "x": 25080,
+  "z": -19112,
+  "dim": "DIM1",
+  "mw": "mw$default",
+  "count": 2706,
+  "cells": 24
+ },
+ {
+  "name": "候选遗迹 2631块",
+  "x": 49432,
+  "z": -43616,
+  "dim": "DIM1",
+  "mw": "mw$default",
+  "count": 2631,
+  "cells": 19
+ },
+ {
+  "name": "候选遗迹 2596块",
+  "x": 12480,
+  "z": -48032,
+  "dim": "DIM1",
+  "mw": "mw$default",
+  "count": 2596,
+  "cells": 22
+ },
+ {
+  "name": "候选遗迹 2560块",
+  "x": 2720,
+  "z": -47752,
+  "dim": "DIM1",
+  "mw": "mw$default",
+  "count": 2560,
+  "cells": 22
+ },
+ {
+  "name": "候选遗迹 2553块",
+  "x": 33328,
+  "z": -47912,
+  "dim": "DIM1",
+  "mw": "mw$default",
+  "count": 2553,
+  "cells": 28
+ },
+ {
+  "name": "候选遗迹 2352块",
+  "x": 46392,
+  "z": -27120,
+  "dim": "DIM1",
+  "mw": "mw$default",
+  "count": 2352,
+  "cells": 19
+ },
+ {
+  "name": "候选遗迹 2335块",
+  "x": 42568,
+  "z": -43552,
+  "dim": "DIM1",
+  "mw": "mw$default",
+  "count": 2335,
+  "cells": 19
+ },
+ {
+  "name": "候选遗迹 2333块",
+  "x": 32984,
+  "z": -48512,
+  "dim": "DIM1",
+  "mw": "mw$default",
+  "count": 2333,
+  "cells": 19
+ },
+ {
+  "name": "候选遗迹 2301块",
+  "x": 48872,
+  "z": -26368,
+  "dim": "DIM1",
+  "mw": "mw$default",
+  "count": 2301,
+  "cells": 19
+ },
+ {
+  "name": "候选遗迹 2290块",
+  "x": -46328,
+  "z": -35024,
+  "dim": "DIM1",
+  "mw": "mw$default",
+  "count": 2290,
+  "cells": 18
+ },
+ {
+  "name": "候选遗迹 2268块",
+  "x": -11224,
+  "z": -48048,
+  "dim": "DIM1",
+  "mw": "mw$default",
+  "count": 2268,
+  "cells": 19
+ },
+ {
+  "name": "候选遗迹 2268块",
+  "x": 32264,
+  "z": -34080,
+  "dim": "DIM1",
+  "mw": "mw$default",
+  "count": 2268,
+  "cells": 18
+ },
+ {
+  "name": "候选遗迹 2258块",
+  "x": 16712,
+  "z": 6912,
+  "dim": "DIM1",
+  "mw": "mw$default",
+  "count": 2258,
+  "cells": 19
+ },
+ {
+  "name": "候选遗迹 2255块",
+  "x": 19784,
+  "z": -29952,
+  "dim": "DIM1",
+  "mw": "mw$default",
+  "count": 2255,
+  "cells": 19
+ },
+ {
+  "name": "候选遗迹 2225块",
+  "x": 16808,
+  "z": -48384,
+  "dim": "DIM1",
+  "mw": "mw$default",
+  "count": 2225,
+  "cells": 19
+ },
+ {
+  "name": "候选遗迹 2219块",
+  "x": 30744,
+  "z": -31472,
+  "dim": "DIM1",
+  "mw": "mw$default",
+  "count": 2219,
+  "cells": 19
+ },
+ {
+  "name": "候选遗迹 2210块",
+  "x": 48200,
+  "z": -41248,
+  "dim": "DIM1",
+  "mw": "mw$default",
+  "count": 2210,
+  "cells": 19
+ },
+ {
+  "name": "候选遗迹 2204块",
+  "x": 33912,
+  "z": -48544,
+  "dim": "DIM1",
+  "mw": "mw$default",
+  "count": 2204,
+  "cells": 18
+ },
+ {
+  "name": "候选遗迹 2200块",
+  "x": 8568,
+  "z": -47568,
+  "dim": "DIM1",
+  "mw": "mw$default",
+  "count": 2200,
+  "cells": 18
+ },
+ {
+  "name": "候选遗迹 2198块",
+  "x": 19512,
+  "z": -48608,
+  "dim": "DIM1",
+  "mw": "mw$default",
+  "count": 2198,
+  "cells": 19
+ },
+ {
+  "name": "候选遗迹 2197块",
+  "x": 42584,
+  "z": -42784,
+  "dim": "DIM1",
+  "mw": "mw$default",
+  "count": 2197,
+  "cells": 18
+ },
+ {
+  "name": "候选遗迹 2196块",
+  "x": 49208,
+  "z": -45840,
+  "dim": "DIM1",
+  "mw": "mw$default",
+  "count": 2196,
+  "cells": 19
+ },
+ {
+  "name": "候选遗迹 2194块",
+  "x": 49352,
+  "z": -18976,
+  "dim": "DIM1",
+  "mw": "mw$default",
+  "count": 2194,
+  "cells": 19
+ },
+ {
+  "name": "候选遗迹 2164块",
+  "x": 47768,
+  "z": -32832,
+  "dim": "DIM1",
+  "mw": "mw$default",
+  "count": 2164,
+  "cells": 19
+ }
+]

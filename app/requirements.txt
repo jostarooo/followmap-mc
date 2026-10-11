@@ -1,0 +1,11 @@
+# 方案C · 跟随地图 —— 运行期依赖
+#
+# 只有这两个：其余全是 Python 标准库（ctypes/tkinter/wave/zipfile/json...）。
+# 项目根目录那些离线分析脚本（scan_structures.py / build_colors.py 等）才需要
+# opencv / matplotlib / lxml / python-docx，**运行程序不需要**。
+#
+# 安装：  pip install -r requirements.txt
+# 或：    python -m pip install Pillow numpy
+
+Pillow>=9.0
+numpy>=1.20

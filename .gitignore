@@ -1,0 +1,30 @@
+# ---- 运行期数据 / 缓存（可再生成，且含本机游戏数据）----
+app/out/
+app/cache/*
+!app/cache/font_ascii.png
+__pycache__/
+*.pyc
+*.pyo
+
+# ---- 本地构建产物 ----
+app/coordbridge/build/
+app/coordbridge/coordbridge-1.2.0.jar
+dist/
+app/_modtest/build/
+app/_modtest/bench-cache/
+app/_modtest/stub-home/
+app/_modtest/stubs/
+app/_modtest/_log_*.txt
+
+# ---- 已移除功能的备份（含改动前源码与旧 jar）----
+app/_removed/
+
+# ---- 本机路径（跟机器走，不该共享）----
+app/server_path.txt
+app/cache/server_path.auto.txt
+
+# ---- 服务器资料与调试图（版权 / 体积原因不入库）----
+raw/
+ruins_img/
+/*.png
+=

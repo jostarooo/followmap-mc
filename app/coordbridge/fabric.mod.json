@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "id": "coordbridge",
+  "version": "1.3.1",
+  "name": "Coord Bridge",
+  "description": "本地只读桥：把玩家坐标/维度/服务器写入 ~/.coordbridge/coords.json；把内存中已加载区块的地表方块写入 ~/.coordbridge/chunks/，供外部跟随地图实时渲染（绕过 Xaero 的 60 秒落盘节流）。完全不发网络包、不写聊天、不修改游戏状态。",
+  "authors": ["local"],
+  "license": "MIT",
+  "environment": "client",
+  "entrypoints": {
+    "client": ["coordbridge.CoordBridge"]
+  },
+  "depends": {
+    "fabricloader": ">=0.14.0",
+    "minecraft": ">=1.20.1 <1.20.5"
+  }
+}

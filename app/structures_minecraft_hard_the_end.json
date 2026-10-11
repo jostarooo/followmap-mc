@@ -1,0 +1,34 @@
+{
+ "dim": "minecraft$hard_the_end",
+ "region_count": 10,
+ "clusters": [
+  {
+   "count": 462,
+   "cells": 19,
+   "bbox": [
+    -48,
+    -48,
+    48,
+    48
+   ],
+   "center": [
+    0,
+    0
+   ],
+   "blocks": [
+    [
+     "minecraft:obsidian",
+     421
+    ],
+    [
+     "minecraft:bedrock",
+     31
+    ],
+    [
+     "minecraft:fire",
+     10
+    ]
+   ]
+  }
+ ]
+}
