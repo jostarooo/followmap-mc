@@ -132,6 +132,10 @@ class MapView:
 
     @staticmethod
     def _marker(d, x, y, color):
+        # 兜底：color 必须是 int/tuple（JSON 加载可能漏出 list），
+        # 否则 PIL draw_ink 直接 TypeError 且每帧必炸（2026-10-11 启动崩溃）。
+        if not isinstance(color, tuple):
+            color = tuple(color) if color else (255, 200, 60, 255)
         d.polygon([(x, y - 6), (x + 6, y), (x, y + 6), (x - 6, y)],
                   fill=color, outline=(0, 0, 0, 220))
         d.point((x, y), fill=(0, 0, 0, 255))

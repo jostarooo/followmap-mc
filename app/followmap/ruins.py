@@ -298,6 +298,10 @@ class RuinWatcher:
             now = time.time()
             for it in data.get("found") or []:
                 if now - float(it.get("ts", 0)) < 3 * 86400:
+                    # JSON 落盘后 color 会变回 list；PIL draw_ink 只认 int/tuple，
+                    # list 直接传给 view._marker 会 TypeError（2026-10-11 启动崩溃根因）。
+                    c = it.get("color")
+                    it["color"] = tuple(c) if isinstance(c, (list, tuple)) else None
                     self.found.append(it)
         except Exception:
             pass
