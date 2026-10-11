@@ -26,6 +26,7 @@ import json
 import os
 import re
 import sys
+import urllib.error
 import urllib.request
 import zipfile
 
@@ -150,8 +151,17 @@ def fetch_mappings(mc, log=print):
 
 def _get(url):
     req = urllib.request.Request(url, headers={"User-Agent": "coordbridge-modmap/1.0"})
-    with urllib.request.urlopen(req, timeout=30) as r:
-        return r.read()
+    try:
+        with urllib.request.urlopen(req, timeout=30) as r:
+            return r.read()
+    except urllib.error.HTTPError as e:
+        # 公司/沙箱代理会拦截 maven/mojang 域并回 401/403（环境变量 HTTP_PROXY 生效时）。
+        # 这时回退「完全不走代理」的直连再试一次；真实网络环境下两条路等价，无副作用。
+        if e.code not in (401, 403):
+            raise
+        opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
+        with opener.open(req, timeout=30) as r:
+            return r.read()
 
 # 有实现的方法带 "起始行:结束行:" 前缀；接口/抽象方法**没有**行号，例如：
 #     net.minecraft.resources.ResourceLocation getKey(java.lang.Object) -> b
