@@ -1,0 +1,18 @@
+{
+  "schemaVersion": 1,
+  "id": "fishprobe",
+  "version": "0.2.0",
+  "name": "Fish Probe",
+  "description": "只读探针：把 BossBar / Title / ActionBar / 手持物的原始数据以 JSONL 事件流写入 ~/.fishprobe/events/，供离线分析钓鱼 QTE 规则。完全不发网络包、不写聊天、不修改任何游戏状态。",
+  "authors": ["local"],
+  "license": "MIT",
+  "environment": "client",
+  "entrypoints": {
+    "client": ["fishprobe.FishProbe"]
+  },
+  "depends": {
+    "fabricloader": ">=0.15.0",
+    "minecraft": ">=1.20.1 <1.20.5",
+    "fabric-lifecycle-events-v1": "*"
+  }
+}

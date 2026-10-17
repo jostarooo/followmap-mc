@@ -1,0 +1,18 @@
+{
+  "schemaVersion": 1,
+  "id": "fishauto",
+  "version": "0.3.0",
+  "name": "Fish Auto (方块传说钓鱼)",
+  "description": "方块传说服务器「钓鱼岛屿」收杆小游戏的自动玩家。v0.3.0 补齐完整循环：auto_cast 右键抛竿 → reel_on_bite 咬钩即收杆（以 player.fishing.biting 服务端真信号替代不可靠的「按节拍」）→ QTE 自动完成 → 上鱼再循环；form_strategy 支持 A 形态（指针进绿区点按）与 C 形态（判定色画在底图，按色段判定）自动按键，B 形态（无指针）不按键。v0.2.1 的 bite_log 咬钩观测与 frame 的 form 形态标注保留。纯反射 + 不发自定义网络包：只写原版 KeyMapping 字段。默认**全部关闭**（enabled=false、dry_run=true、reel_on_bite=false、form_strategy=observe）。配置热加载：~/.fishauto/config.json。",
+  "authors": ["local"],
+  "license": "MIT",
+  "environment": "client",
+  "entrypoints": {
+    "client": ["fishauto.FishAuto"]
+  },
+  "depends": {
+    "fabricloader": ">=0.15.0",
+    "minecraft": ">=1.20.1 <1.20.5",
+    "fabric-lifecycle-events-v1": "*"
+  }
+}

@@ -1,0 +1,29 @@
+{
+  "_说明": "把本文件重命名为 config.json 放到 exe 同目录即可生效；所有项都可省略。",
+
+  "app_dir": "D:\\wbworkspace\\2026-10-08-17-29-12\\fangkuai-chuanshuo\\app",
+  "_app_dir": "followmap 主程序目录。留空/不存在时会自动向上搜索 followmap/app.py，再退回内置默认路径。",
+
+  "dim": "minecraft:the_end",
+  "_dim": "游戏不在世界中时，地图默认显示哪个维度。可选 minecraft:the_end / minecraft:overworld / minecraft:the_nether。",
+
+  "echo_actions": true,
+  "_echo_actions": "是否把界面上的操作（改提醒方式、改设置、立即扫描、暂停）落盘到 runtime/actions.jsonl，供 Python 主程序读取。",
+
+  "webview_args": "--no-sandbox",
+  "_webview_args": "传给 WebView2 的浏览器参数。默认 --no-sandbox：Chromium 渲染进程沙箱在受限令牌/作业对象里起不来，症状是窗口出现但页面永远不加载。纯本地页面，关掉风险很低；留空字符串则不加任何参数。",
+
+  "start_detached": false,
+  "_start_detached": "启动时就直接把地图分离到独立窗口（等同于命令行 --detach）。运行中随时可以点界面上的「分离地图」或按 D 切换。",
+
+  "map_window": {
+    "width": 560,
+    "height": 620,
+    "frameless": true,
+    "on_top": true,
+    "resizable": true,
+    "x": null,
+    "y": null
+  },
+  "_map_window": "独立地图窗口的样子。frameless=true 去掉标题栏（拖动靠窗口顶部那条 22px 的拖拽条）；on_top=true 置顶（全屏游戏时也看得见，适合钉在副屏）；x/y 留 null 由系统摆放，想固定在某块屏就填像素坐标。"
+}

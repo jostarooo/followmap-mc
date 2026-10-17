@@ -1,0 +1,340 @@
+{
+ "_说明": "方块传说钓鱼 QTE 字体 advance 表；由 qte_adv.py 从活动资源包实测推导，勿手改",
+ "game_dir": "D:\\config\\game\\mc\\pcl2\\.minecraft\\versions\\1.20.4-Fabric 0.16.14",
+ "pack": "服务器材质10.2.zip",
+ "packs_active": [
+  "Minecraft-Mod-Language-Modpack-Converted-1.20.4.zip",
+  "服务器材质10.2.zip"
+ ],
+ "fonts": [
+  "assets/customfishing/font/default.json",
+  "assets/customfishing/font/offset_chars.json"
+ ],
+ "formula": "advance = (imgW/cols) * (height/(imgH/rows)) + spacing",
+ "points": {
+  "45057": {
+   "advance": 5.0,
+   "file": "customfishing:font/bars/pointer.png",
+   "img": "5x15",
+   "height": 15,
+   "spacing": 0,
+   "font": "assets/customfishing/font/default.json",
+   "pack": "服务器材质10.2.zip"
+  },
+  "45058": {
+   "advance": 256.0,
+   "file": "customfishing:font/bars/bar1.png",
+   "img": "256x8",
+   "height": 8,
+   "spacing": 0,
+   "font": "assets/customfishing/font/default.json",
+   "pack": "服务器材质10.2.zip"
+  },
+  "45059": {
+   "advance": 256.0,
+   "file": "customfishing:font/bars/bar2.png",
+   "img": "256x8",
+   "height": 8,
+   "spacing": 0,
+   "font": "assets/customfishing/font/default.json",
+   "pack": "服务器材质10.2.zip"
+  },
+  "45060": {
+   "advance": 256.0,
+   "file": "customfishing:font/bars/bar3.png",
+   "img": "256x8",
+   "height": 8,
+   "spacing": 0,
+   "font": "assets/customfishing/font/default.json",
+   "pack": "服务器材质10.2.zip"
+  },
+  "45061": {
+   "advance": 256.0,
+   "file": "customfishing:font/bars/bar4.png",
+   "img": "256x8",
+   "height": 8,
+   "spacing": 0,
+   "font": "assets/customfishing/font/default.json",
+   "pack": "服务器材质10.2.zip"
+  },
+  "45062": {
+   "advance": 256.0,
+   "file": "customfishing:font/bars/bar5.png",
+   "img": "256x8",
+   "height": 8,
+   "spacing": 0,
+   "font": "assets/customfishing/font/default.json",
+   "pack": "服务器材质10.2.zip"
+  },
+  "45063": {
+   "advance": 256.0,
+   "file": "customfishing:font/bars/bar6.png",
+   "img": "256x8",
+   "height": 8,
+   "spacing": 0,
+   "font": "assets/customfishing/font/default.json",
+   "pack": "服务器材质10.2.zip"
+  },
+  "45064": {
+   "advance": 256.0,
+   "file": "customfishing:font/bars/bar7.png",
+   "img": "256x8",
+   "height": 8,
+   "spacing": 0,
+   "font": "assets/customfishing/font/default.json",
+   "pack": "服务器材质10.2.zip"
+  },
+  "45065": {
+   "advance": 256.0,
+   "file": "customfishing:font/bars/bar8.png",
+   "img": "256x8",
+   "height": 8,
+   "spacing": 0,
+   "font": "assets/customfishing/font/default.json",
+   "pack": "服务器材质10.2.zip"
+  },
+  "45066": {
+   "advance": 256.0,
+   "file": "customfishing:font/bars/bar9.png",
+   "img": "256x8",
+   "height": 8,
+   "spacing": 0,
+   "font": "assets/customfishing/font/default.json",
+   "pack": "服务器材质10.2.zip"
+  },
+  "45067": {
+   "advance": 256.0,
+   "file": "customfishing:font/bars/bar_rainbow.png",
+   "img": "256x8",
+   "height": 8,
+   "spacing": 0,
+   "font": "assets/customfishing/font/default.json",
+   "pack": "服务器材质10.2.zip"
+  },
+  "45068": {
+   "advance": 256.0,
+   "file": "customfishing:font/bars/bar10.png",
+   "img": "256x8",
+   "height": 8,
+   "spacing": 0,
+   "font": "assets/customfishing/font/default.json",
+   "pack": "服务器材质10.2.zip"
+  },
+  "45069": {
+   "advance": 8.0,
+   "file": "customfishing:font/bars/fish_icon.png",
+   "img": "16x10",
+   "height": 5,
+   "spacing": 0,
+   "font": "assets/customfishing/font/default.json",
+   "pack": "服务器材质10.2.zip"
+  },
+  "45070": {
+   "advance": 8.0,
+   "file": "customfishing:font/bars/struggling_fish_icon.png",
+   "img": "16x10",
+   "height": 5,
+   "spacing": 0,
+   "font": "assets/customfishing/font/default.json",
+   "pack": "服务器材质10.2.zip"
+  },
+  "45071": {
+   "advance": 8.0,
+   "file": "customfishing:font/bars/struggling_fish_icon.png",
+   "img": "16x10",
+   "height": 5,
+   "spacing": 0,
+   "font": "assets/customfishing/font/default.json",
+   "pack": "服务器材质10.2.zip"
+  },
+  "45072": {
+   "advance": 8.0,
+   "file": "customfishing:font/bars/struggling_fish_icon.png",
+   "img": "16x10",
+   "height": 5,
+   "spacing": 0,
+   "font": "assets/customfishing/font/default.json",
+   "pack": "服务器材质10.2.zip"
+  },
+  "45073": {
+   "advance": 256.0,
+   "file": "customfishing:font/bars/bar11.png",
+   "img": "256x20",
+   "height": 20,
+   "spacing": 0,
+   "font": "assets/customfishing/font/default.json",
+   "pack": "服务器材质10.2.zip"
+  },
+  "45074": {
+   "advance": 45.0,
+   "file": "customfishing:font/bars/judgment_area_easy.png",
+   "img": "45x6",
+   "height": 6,
+   "spacing": 0,
+   "font": "assets/customfishing/font/default.json",
+   "pack": "服务器材质10.2.zip"
+  },
+  "45075": {
+   "advance": 36.0,
+   "file": "customfishing:font/bars/judgment_area_normal.png",
+   "img": "36x6",
+   "height": 6,
+   "spacing": 0,
+   "font": "assets/customfishing/font/default.json",
+   "pack": "服务器材质10.2.zip"
+  },
+  "45076": {
+   "advance": 27.0,
+   "file": "customfishing:font/bars/judgment_area_hard.png",
+   "img": "27x6",
+   "height": 6,
+   "spacing": 0,
+   "font": "assets/customfishing/font/default.json",
+   "pack": "服务器材质10.2.zip"
+  },
+  "63489": {
+   "advance": -3.0,
+   "file": "customfishing:font/base/space_split.png",
+   "img": "256x256",
+   "height": -3,
+   "spacing": 0,
+   "font": "assets/customfishing/font/offset_chars.json",
+   "pack": "服务器材质10.2.zip"
+  },
+  "63490": {
+   "advance": -4.0,
+   "file": "customfishing:font/base/space_split.png",
+   "img": "256x256",
+   "height": -4,
+   "spacing": 0,
+   "font": "assets/customfishing/font/offset_chars.json",
+   "pack": "服务器材质10.2.zip"
+  },
+  "63491": {
+   "advance": -6.0,
+   "file": "customfishing:font/base/space_split.png",
+   "img": "256x256",
+   "height": -6,
+   "spacing": 0,
+   "font": "assets/customfishing/font/offset_chars.json",
+   "pack": "服务器材质10.2.zip"
+  },
+  "63492": {
+   "advance": -10.0,
+   "file": "customfishing:font/base/space_split.png",
+   "img": "256x256",
+   "height": -10,
+   "spacing": 0,
+   "font": "assets/customfishing/font/offset_chars.json",
+   "pack": "服务器材质10.2.zip"
+  },
+  "63493": {
+   "advance": -18.0,
+   "file": "customfishing:font/base/space_split.png",
+   "img": "256x256",
+   "height": -18,
+   "spacing": 0,
+   "font": "assets/customfishing/font/offset_chars.json",
+   "pack": "服务器材质10.2.zip"
+  },
+  "63494": {
+   "advance": -34.0,
+   "file": "customfishing:font/base/space_split.png",
+   "img": "256x256",
+   "height": -34,
+   "spacing": 0,
+   "font": "assets/customfishing/font/offset_chars.json",
+   "pack": "服务器材质10.2.zip"
+  },
+  "63495": {
+   "advance": -66.0,
+   "file": "customfishing:font/base/space_split.png",
+   "img": "256x256",
+   "height": -66,
+   "spacing": 0,
+   "font": "assets/customfishing/font/offset_chars.json",
+   "pack": "服务器材质10.2.zip"
+  },
+  "63496": {
+   "advance": -130.0,
+   "file": "customfishing:font/base/space_split.png",
+   "img": "256x256",
+   "height": -130,
+   "spacing": 0,
+   "font": "assets/customfishing/font/offset_chars.json",
+   "pack": "服务器材质10.2.zip"
+  },
+  "63505": {
+   "advance": -1.0,
+   "file": "customfishing:font/base/space_split.png",
+   "img": "256x256",
+   "height": -1,
+   "spacing": 0,
+   "font": "assets/customfishing/font/offset_chars.json",
+   "pack": "服务器材质10.2.zip"
+  },
+  "63506": {
+   "advance": 1.0,
+   "file": "customfishing:font/base/space_split.png",
+   "img": "256x256",
+   "height": 1,
+   "spacing": 0,
+   "font": "assets/customfishing/font/offset_chars.json",
+   "pack": "服务器材质10.2.zip"
+  },
+  "63507": {
+   "advance": 3.0,
+   "file": "customfishing:font/base/space_split.png",
+   "img": "256x256",
+   "height": 3,
+   "spacing": 0,
+   "font": "assets/customfishing/font/offset_chars.json",
+   "pack": "服务器材质10.2.zip"
+  },
+  "63508": {
+   "advance": 7.0,
+   "file": "customfishing:font/base/space_split.png",
+   "img": "256x256",
+   "height": 7,
+   "spacing": 0,
+   "font": "assets/customfishing/font/offset_chars.json",
+   "pack": "服务器材质10.2.zip"
+  },
+  "63509": {
+   "advance": 15.0,
+   "file": "customfishing:font/base/space_split.png",
+   "img": "256x256",
+   "height": 15,
+   "spacing": 0,
+   "font": "assets/customfishing/font/offset_chars.json",
+   "pack": "服务器材质10.2.zip"
+  },
+  "63510": {
+   "advance": 31.0,
+   "file": "customfishing:font/base/space_split.png",
+   "img": "256x256",
+   "height": 31,
+   "spacing": 0,
+   "font": "assets/customfishing/font/offset_chars.json",
+   "pack": "服务器材质10.2.zip"
+  },
+  "63511": {
+   "advance": 63.0,
+   "file": "customfishing:font/base/space_split.png",
+   "img": "256x256",
+   "height": 63,
+   "spacing": 0,
+   "font": "assets/customfishing/font/offset_chars.json",
+   "pack": "服务器材质10.2.zip"
+  },
+  "63512": {
+   "advance": 127.0,
+   "file": "customfishing:font/base/space_split.png",
+   "img": "256x256",
+   "height": 127,
+   "spacing": 0,
+   "font": "assets/customfishing/font/offset_chars.json",
+   "pack": "服务器材质10.2.zip"
+  }
+ }
+}

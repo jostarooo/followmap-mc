@@ -1,0 +1,2192 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="dark">
+<!-- 内联 favicon：保持「零网络请求」，双击打开时不会出现 404 -->
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 8 8'%3E%3Crect width='8' height='8' fill='%23171226'/%3E%3Crect x='2' y='1' width='4' height='1' fill='%237de0d0'/%3E%3Crect x='1' y='2' width='6' height='4' fill='%237de0d0'/%3E%3Crect x='3' y='3' width='2' height='2' fill='%23120d1c'/%3E%3Crect x='2' y='6' width='4' height='1' fill='%237de0d0'/%3E%3C/svg%3E">
+<title>末地跑图提醒 · 控制台</title>
+<!--
+  ===========================================================================
+  方块传说 · 末地跑图提醒 —— 前端操作界面（独立模块）
+  ---------------------------------------------------------------------------
+  · 单文件 / 零依赖 / 零网络请求：双击即可打开，可离线、可打包、可分享
+  · 全部逻辑封装在 IIFE 内，不污染全局，不读写宿主页面的任何东西
+  · 不 import、不引用、不改动 followmap / app.py / ruins.json 等既有文件
+  · 只通过 window.PaoTuAlertUI 暴露一个「适配器」接口，供后端按需挂接
+  ===========================================================================
+-->
+<style>
+/* ═══════════════════════════════════════════════════════════════════════
+   0. 设计令牌 —— 取自末地观感：紫珀 / 末地石 / 黑曜石 / 虚空
+   ═══════════════════════════════════════════════════════════════════════ */
+:root{
+  --void:#07060b;
+  --void-2:#0d0b14;
+  --obsidian:#15111d;
+  --obsidian-2:#1d1729;
+
+  --panel-a:rgba(34,27,48,.94);
+  --panel-b:rgba(19,15,29,.96);
+  --slot:#2b2338;
+  --slot-d:#1a1526;
+
+  --line:#07060b;
+  --hi:rgba(255,255,255,.13);
+  --lo:rgba(0,0,0,.62);
+
+  --purpur:#bd93cf;
+  --purpur-d:#7c5a90;
+  --end-stone:#e3e0a6;
+  --ender:#31a596;
+  --gold:#f5c542;
+  --redstone:#e04a3c;
+  --lapis:#7c93e8;
+
+  --tx:#efe9f7;
+  --tx-2:#b6a9c9;
+  --tx-3:#8b7fa0;
+
+  /* 遗迹三色（与 ruins.json v5 实测值一致） */
+  --r-platinum:#e8e8f0;
+  --r-wizard:#5ad2c8;
+  --r-samurai:#dc463c;
+
+  --mc:#9c9c9c;      /* MC 按钮体 */
+  --mc-2:#7b7b7b;
+  --mc-hi:#aab8f2;
+  --mc-hi2:#8496e4;
+
+  --rp:2px;          /* 像素边尺寸 */
+  --r:3px;
+  --gap:14px;
+  --mono:"Cascadia Mono",Consolas,"DejaVu Sans Mono",ui-monospace,monospace;
+  --sans:"Segoe UI","Microsoft YaHei UI","PingFang SC","Noto Sans SC",system-ui,sans-serif;
+  --px:1.6px;        /* 像素字阴影偏移 */
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{
+  min-height:100vh;
+  background:
+    radial-gradient(120% 90% at 12% -10%, #2a2038 0%, transparent 55%),
+    radial-gradient(100% 80% at 100% 0%, #241a30 0%, transparent 50%),
+    linear-gradient(180deg,var(--void-2),var(--void) 70%);
+  background-attachment:fixed;
+  color:var(--tx);
+  font:14px/1.5 var(--sans);
+  -webkit-font-smoothing:antialiased;
+  overflow-x:hidden;
+}
+/* 极淡的方格底纹，给整个页面一点「方块」质感（不干扰阅读） */
+body::before{
+  content:"";position:fixed;inset:0;pointer-events:none;z-index:0;opacity:.5;
+  background-image:
+    linear-gradient(rgba(255,255,255,.022) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(255,255,255,.022) 1px,transparent 1px);
+  background-size:16px 16px,16px 16px;
+}
+svg{display:block}
+.pix{image-rendering:pixelated;image-rendering:crisp-edges}
+::selection{background:var(--purpur-d);color:#fff}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   1. 骨架布局 —— 自适应（宽屏双列 / 中屏单列 / 窄屏紧凑）
+   ═══════════════════════════════════════════════════════════════════════ */
+.app{position:relative;z-index:1;max-width:1660px;margin:0 auto;padding:12px clamp(8px,1.6vw,20px) 18px;
+     display:flex;flex-direction:column;gap:var(--gap);min-height:100vh}
+
+.grid{display:grid;gap:var(--gap);align-items:stretch;
+      grid-template-columns:minmax(0,1.62fr) minmax(330px,.98fr)}
+.col{display:flex;flex-direction:column;gap:var(--gap);min-width:0}
+/* 左列的最后一屏（提醒流）自动撑满，避免两列高度不齐时留下大片空白 */
+.col > .panel:last-child{flex:1 1 auto;display:flex;flex-direction:column;min-height:0}
+.col > .panel:last-child > .feed{flex:1 1 auto;max-height:none}
+
+@media (max-width:1180px){
+  .grid{grid-template-columns:minmax(0,1fr);align-items:start}
+  .col > .panel:last-child{flex:0 0 auto}
+  .col > .panel:last-child > .feed{max-height:420px}
+}
+@media (max-width:620px){
+  :root{--gap:10px}
+  .app{padding:8px 8px 14px}
+  body{font-size:13px}
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   2. 面板 / 边框 —— MC 背包槽式 2px 立体边框
+   ═══════════════════════════════════════════════════════════════════════ */
+.panel{
+  position:relative;border:var(--rp) solid var(--line);border-radius:var(--r);
+  background:linear-gradient(180deg,var(--panel-a),var(--panel-b));
+  box-shadow:
+    inset var(--rp) var(--rp) 0 var(--hi),
+    inset calc(-1 * var(--rp)) calc(-1 * var(--rp)) 0 var(--lo),
+    0 5px 0 rgba(0,0,0,.45),
+    0 12px 34px rgba(0,0,0,.4);
+}
+.panel::after{ /* 面板内壁的弱方格 */
+  content:"";position:absolute;inset:0;border-radius:var(--r);pointer-events:none;
+  background-image:
+    linear-gradient(rgba(255,255,255,.016) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(255,255,255,.016) 1px,transparent 1px);
+  background-size:12px 12px;
+}
+.pad{position:relative;z-index:1;padding:12px}
+
+.head{
+  position:relative;z-index:1;display:flex;align-items:center;gap:9px;
+  padding:8px 10px;border-bottom:var(--rp) solid var(--line);
+  background:linear-gradient(180deg,rgba(66,52,88,.75),rgba(36,28,50,.85));
+  box-shadow:inset 0 var(--rp) 0 rgba(255,255,255,.10), inset 0 calc(-1 * var(--rp)) 0 rgba(0,0,0,.5);
+}
+.head h2{margin:0;font-size:12.5px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;
+         color:#f5eeff;text-shadow:var(--px) var(--px) 0 rgba(0,0,0,.75)}
+.head .sub{font:11px/1 var(--mono);color:var(--tx-3);letter-spacing:.06em;
+           flex:0 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+/* 运行模式下这句话很长（"实时坐标 · 已落盘 2600 块 · 延迟 0.10s"），
+   必须能缩 + 省略号，否则会把整个面板顶宽、连带页面横向溢出 */
+.head .sub.nav{color:var(--purpur);max-width:36%}
+@media (max-width:900px){.head .sub.nav{display:none}}
+.head .grow{flex:1 1 auto;min-width:4px}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   3. 顶栏
+   ═══════════════════════════════════════════════════════════════════════ */
+.topbar{display:flex;align-items:center;gap:14px;flex-wrap:wrap;
+        padding:11px 13px;
+        border:var(--rp) solid var(--line);border-radius:var(--r);
+        background:linear-gradient(180deg,rgba(52,40,72,.92),rgba(24,18,36,.95));
+        box-shadow:inset var(--rp) var(--rp) 0 var(--hi),inset calc(-1 * var(--rp)) calc(-1 * var(--rp)) 0 var(--lo),
+                   0 5px 0 rgba(0,0,0,.45),0 14px 36px rgba(0,0,0,.42)}
+.brand{display:flex;align-items:center;gap:11px;min-width:0}
+.brand .logo{width:38px;height:38px;flex:none;filter:drop-shadow(0 3px 0 rgba(0,0,0,.5))}
+.brand h1{margin:0;font-size:clamp(15px,1.5vw,19px);font-weight:800;letter-spacing:.03em;
+          color:#fff;text-shadow:var(--px) var(--px) 0 rgba(0,0,0,.8),0 0 22px rgba(189,147,207,.45)}
+.brand p{margin:2px 0 0;font:11px/1.3 var(--mono);color:var(--tx-3);letter-spacing:.08em}
+.topbar .grow{flex:1 1 auto}
+.pills{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.pill{display:inline-flex;align-items:center;gap:6px;padding:5px 9px;border:var(--rp) solid var(--line);
+      border-radius:var(--rp);background:linear-gradient(180deg,#241c33,#151020);
+      box-shadow:inset 1px 1px 0 rgba(255,255,255,.09),inset -1px -1px 0 rgba(0,0,0,.5);
+      font:11.5px/1 var(--mono);color:var(--tx-2);white-space:nowrap}
+.pill b{color:var(--tx);font-weight:700}
+.pill.good{color:#a8efc4}.pill.good b{color:#d6ffe6}
+.pill.warn{color:#f3d68a}.pill.warn b{color:#ffeec0}
+.pill.bad{color:#ffb0a6}.pill.bad b{color:#ffd9d3}
+.dot{width:8px;height:8px;border-radius:50%;flex:none;background:var(--tx-3);
+     box-shadow:0 0 0 1px rgba(0,0,0,.7) inset}
+.dot.on{background:#4ade80;box-shadow:0 0 9px #4ade80,0 0 0 1px rgba(0,0,0,.6) inset}
+.dot.off{background:#6b6478}
+.dot.warn{background:var(--gold);box-shadow:0 0 9px var(--gold),0 0 0 1px rgba(0,0,0,.6) inset}
+.dot.bad{background:var(--redstone);box-shadow:0 0 9px var(--redstone),0 0 0 1px rgba(0,0,0,.6) inset}
+.dot.pulse{animation:pulse 1.25s ease-in-out infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.35}}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   4. 按钮 —— MC 立体感（凸起 / 悬停泛蓝 / 按下凹陷）
+   ═══════════════════════════════════════════════════════════════════════ */
+.btn{
+  --bg:var(--mc);--bg2:var(--mc-2);--fg:#161616;
+  position:relative;display:inline-flex;align-items:center;justify-content:center;gap:7px;
+  padding:8px 13px;min-height:34px;
+  border:var(--rp) solid var(--line);border-radius:var(--rp);
+  background:linear-gradient(180deg,var(--bg),var(--bg2));
+  box-shadow:inset var(--rp) var(--rp) 0 rgba(255,255,255,.62),
+             inset calc(-1 * var(--rp)) calc(-1 * var(--rp)) 0 rgba(0,0,0,.42);
+  color:var(--fg);font:600 12.5px/1 var(--sans);letter-spacing:.03em;
+  text-shadow:1px 1px 0 rgba(255,255,255,.32);
+  cursor:pointer;user-select:none;-webkit-tap-highlight-color:transparent;
+  transition:background .1s linear,transform .05s linear;
+}
+.btn svg{flex:none}
+.btn:hover:not(:disabled){--bg:var(--mc-hi);--bg2:var(--mc-hi2);--fg:#0d1024;
+  text-shadow:1px 1px 0 rgba(255,255,255,.42)}
+.btn:active:not(:disabled){transform:translateY(1px);
+  box-shadow:inset calc(-1 * var(--rp)) calc(-1 * var(--rp)) 0 rgba(255,255,255,.34),
+             inset var(--rp) var(--rp) 0 rgba(0,0,0,.5)}
+.btn:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+.btn[disabled]{opacity:.42;cursor:not-allowed;filter:saturate(.35)}
+.btn.primary{--bg:#8ecf9e;--bg2:#5aa876;--fg:#0b2012}
+.btn.primary:hover:not(:disabled){--bg:#a8e6b8;--bg2:#6cbe8a}
+.btn.warn{--bg:#f0cf7c;--bg2:#c79f47;--fg:#241a05}
+.btn.warn:hover:not(:disabled){--bg:#ffe3a0;--bg2:#d8b25a}
+.btn.danger{--bg:#e08a80;--bg2:#b25146;--fg:#210705}
+.btn.danger:hover:not(:disabled){--bg:#f0a196;--bg2:#c55c50}
+.btn.ghost{--bg:#3b3149;--bg2:#241d31;--fg:#ded4ec;text-shadow:1px 1px 0 rgba(0,0,0,.5)}
+.btn.ghost:hover:not(:disabled){--bg:#4c3f5e;--bg2:#2e2540;--fg:#fff}
+.btn.sm{padding:6px 10px;min-height:28px;font-size:11.5px}
+.btn.block{width:100%}
+.btn .kbd{margin-left:2px;font:10.5px/1 var(--mono);opacity:.65}
+
+/* 分段控件（提醒方式 / 缩放档 / 层） */
+.seg{display:flex;flex-wrap:wrap;gap:6px}
+.seg .btn{padding:7px 11px;min-height:32px}
+.seg .btn[aria-pressed="true"]{
+  --bg:#c9a5da;--bg2:#8f66a6;--fg:#1a0f22;
+  box-shadow:inset calc(-1 * var(--rp)) calc(-1 * var(--rp)) 0 rgba(255,255,255,.3),
+             inset var(--rp) var(--rp) 0 rgba(0,0,0,.48),0 0 14px rgba(189,147,207,.35);
+  text-shadow:1px 1px 0 rgba(255,255,255,.3)}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   5. 表单控件
+   ═══════════════════════════════════════════════════════════════════════ */
+.row{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.row.between{justify-content:space-between}
+.row + .row{margin-top:9px}
+.lbl{font-size:12.5px;color:var(--tx-2);display:flex;align-items:center;gap:6px}
+.lbl .hint{font:10.5px/1 var(--mono);color:var(--tx-3)}
+.val{font:700 12px/1 var(--mono);color:var(--purpur);min-width:52px;text-align:right}
+
+input[type=range]{-webkit-appearance:none;appearance:none;flex:1 1 130px;min-width:110px;height:20px;background:transparent;cursor:pointer}
+input[type=range]::-webkit-slider-runnable-track{height:8px;border:var(--rp) solid var(--line);
+  background:linear-gradient(180deg,#1a1526,#241d33);box-shadow:inset 1px 1px 0 rgba(0,0,0,.7)}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:14px;height:18px;margin-top:-7px;
+  border:var(--rp) solid var(--line);border-radius:1px;
+  background:linear-gradient(180deg,#e0d6ee,#9c8bb4);
+  box-shadow:inset 1px 1px 0 rgba(255,255,255,.7),inset -1px -1px 0 rgba(0,0,0,.45)}
+input[type=range]::-moz-range-track{height:8px;border:var(--rp) solid var(--line);background:#1a1526}
+input[type=range]::-moz-range-thumb{width:12px;height:16px;border:var(--rp) solid var(--line);border-radius:1px;
+  background:linear-gradient(180deg,#e0d6ee,#9c8bb4)}
+input[type=range]:focus-visible{outline:2px solid var(--gold);outline-offset:3px}
+
+/* MC 风格开关 */
+.sw{display:inline-flex;align-items:center;gap:8px;cursor:pointer;user-select:none}
+.sw input{position:absolute;opacity:0;width:0;height:0}
+.sw .track{width:38px;height:20px;flex:none;position:relative;border:var(--rp) solid var(--line);
+  background:linear-gradient(180deg,#241d33,#161022);
+  box-shadow:inset 1px 1px 0 rgba(0,0,0,.6),inset -1px -1px 0 rgba(255,255,255,.07)}
+.sw .track::after{content:"";position:absolute;top:1px;left:1px;width:14px;height:14px;
+  border:var(--rp) solid var(--line);background:linear-gradient(180deg,#b9aecb,#7d7292);
+  box-shadow:inset 1px 1px 0 rgba(255,255,255,.55);transition:left .14s cubic-bezier(.4,1.4,.5,1)}
+.sw input:checked + .track{background:linear-gradient(180deg,#4d8f6a,#2f6349)}
+.sw input:checked + .track::after{left:18px;background:linear-gradient(180deg,#dcf5e3,#8fd2a8)}
+.sw input:focus-visible + .track{outline:2px solid var(--gold);outline-offset:2px}
+.sw .cap{font-size:12.5px;color:var(--tx-2)}
+.sw input:checked ~ .cap{color:var(--tx)}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   6. 地图预览
+   ═══════════════════════════════════════════════════════════════════════ */
+.map-grid{display:grid;gap:11px;grid-template-columns:minmax(0,1fr) minmax(226px,284px);align-items:start}
+@media (max-width:860px){.map-grid{grid-template-columns:minmax(0,1fr)}}
+.map-stage{position:relative;border:var(--rp) solid var(--line);border-radius:var(--rp);overflow:hidden;
+  background:linear-gradient(180deg,#0f0d16,#07060b);
+  box-shadow:inset 0 0 0 1px rgba(255,255,255,.06),inset 0 0 40px rgba(0,0,0,.75)}
+#map{display:block;width:100%;height:auto;image-rendering:pixelated;touch-action:none}
+.map-hud{position:absolute;top:6px;left:6px;max-width:calc(100% - 60px);pointer-events:none;
+  padding:5px 8px;border-radius:2px;background:rgba(8,8,12,.67);
+  font:11.5px/1.42 var(--mono);color:#e9e6f2;text-shadow:1px 1px 0 rgba(0,0,0,.9);
+  border:1px solid rgba(255,255,255,.08)}
+.map-hud .l1{color:#ffd678}.map-hud .dim{color:#c3bdd4}
+.map-hud .hit{color:#ffe884}
+.map-stage .badge{position:absolute;right:6px;top:6px;pointer-events:none;
+  padding:3px 6px;border:1px solid rgba(255,255,255,.14);background:rgba(8,8,12,.72);
+  font:10.5px/1 var(--mono);color:#b9aecb;letter-spacing:.06em}
+.scanline{position:absolute;left:0;right:0;height:26px;pointer-events:none;opacity:0;
+  background:linear-gradient(180deg,transparent,rgba(90,210,200,.22),transparent);
+  transition:opacity .18s linear}
+.scanline.on{animation:sweep 1.05s linear infinite;opacity:1}
+@keyframes sweep{0%{top:-26px}100%{top:100%}}
+
+/* 状态读数 */
+.stats{display:grid;gap:7px;grid-template-columns:repeat(auto-fit,minmax(96px,1fr))}
+.stat{padding:7px 8px;border:var(--rp) solid var(--line);border-radius:var(--rp);
+  background:linear-gradient(180deg,#241d33,#171122);
+  box-shadow:inset 1px 1px 0 rgba(255,255,255,.08),inset -1px -1px 0 rgba(0,0,0,.5)}
+.stat .k{font:10.5px/1.3 var(--mono);color:var(--tx-3);letter-spacing:.05em;white-space:nowrap}
+.stat .v{font:700 14.5px/1.35 var(--mono);color:var(--tx);word-break:break-all}
+.stat .v.sm{font-size:12px}
+.stat .v.acc{color:var(--purpur)}
+.stat .v.good{color:#a8efc4}
+.stat .v.warn{color:var(--gold)}
+.stat .v.bad{color:#ffb0a6}
+
+.coord{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:9px}
+.coord .c{flex:1 1 84px;text-align:center;padding:7px 4px;border:var(--rp) solid var(--line);border-radius:var(--rp);
+  background:linear-gradient(180deg,#2a2139,#1a1428)}
+.coord .c b{display:block;font:700 15px/1.25 var(--mono);color:#fff}
+.coord .c span{font:10px/1 var(--mono);color:var(--tx-3);letter-spacing:.14em}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   7. 提醒流
+   ═══════════════════════════════════════════════════════════════════════ */
+.feed{position:relative;z-index:1;min-height:132px;max-height:min(48vh,420px);overflow:auto;padding:8px 10px 10px;
+  display:flex;flex-direction:column;gap:7px;scrollbar-width:thin}
+.feed::-webkit-scrollbar{width:10px}
+.feed::-webkit-scrollbar-track{background:#120e1c}
+.feed::-webkit-scrollbar-thumb{border:2px solid #120e1c;background:#4b3f5e;border-radius:2px}
+/* MC 成就式提醒条（对应真实程序里的「发现 XXX」） */
+.alert{display:grid;grid-template-columns:auto 1fr auto;gap:9px;align-items:center;
+  padding:8px 9px;border:var(--rp) solid var(--line);border-radius:var(--rp);
+  background:linear-gradient(180deg,rgba(46,36,62,.95),rgba(26,20,38,.95));
+  box-shadow:inset 1px 1px 0 rgba(255,255,255,.10),inset -1px -1px 0 rgba(0,0,0,.5);
+  animation:slideIn .34s cubic-bezier(.2,1.2,.4,1)}
+@keyframes slideIn{from{opacity:0;transform:translateY(-7px) scale(.985)}to{opacity:1;transform:none}}
+.alert .ico{width:30px;height:30px;flex:none;display:grid;place-items:center;border:var(--rp) solid var(--line);
+  border-radius:var(--rp);background:#0e0b16;font-size:15px;line-height:1;
+  box-shadow:inset 1px 1px 0 rgba(255,255,255,.13),inset -1px -1px 0 rgba(0,0,0,.6)}
+.alert .name{font-weight:700;font-size:13px;color:#fff;display:flex;align-items:center;gap:7px;flex-wrap:wrap}
+.alert .meta{font:11px/1.4 var(--mono);color:var(--tx-3);margin-top:2px;display:flex;gap:9px;flex-wrap:wrap}
+.alert .meta em{font-style:normal;color:var(--tx-2)}
+.alert .ch{font:10px/1 var(--mono);color:#a8c8b4;border:1px solid rgba(168,239,196,.28);
+  background:rgba(74,222,128,.09);padding:2px 5px;border-radius:2px;white-space:nowrap}
+.alert .right{display:flex;flex-direction:column;align-items:flex-end;gap:5px}
+.purity{width:70px;height:9px;border:var(--rp) solid var(--line);background:#12101b;
+  box-shadow:inset 1px 1px 0 rgba(0,0,0,.7);position:relative;overflow:hidden}
+.purity i{position:absolute;inset:0 auto 0 0;display:block;background:linear-gradient(180deg,#8ef0a8,#3f9b62)}
+.alert .time{font:10.5px/1 var(--mono);color:var(--tx-3)}
+.empty{padding:22px 12px;text-align:center;color:var(--tx-3);font:12px/1.7 var(--sans)}
+.empty .big{font-size:24px;opacity:.5;margin-bottom:6px}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   8. 遗迹类型卡片
+   ═══════════════════════════════════════════════════════════════════════ */
+.types{display:grid;gap:7px;grid-template-columns:repeat(auto-fit,minmax(172px,1fr))}
+.type{padding:7px 8px;border:var(--rp) solid var(--line);border-radius:var(--rp);
+  background:linear-gradient(180deg,#241d33,#171122);
+  box-shadow:inset 1px 1px 0 rgba(255,255,255,.08),inset -1px -1px 0 rgba(0,0,0,.5);
+  transition:opacity .14s linear,border-color .14s linear}
+.type[data-off="1"]{opacity:.52}
+.type .top{display:flex;align-items:center;gap:7px}
+.type .tt{flex:1 1 auto;min-width:0}
+.type .nm{font-weight:700;font-size:12px;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.type .tp{font:10px/1.3 var(--mono);color:var(--tx-3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.type .chip{margin-top:6px;display:flex;flex-wrap:wrap;gap:4px}
+.chip{font:10px/1 var(--mono);padding:3px 5px;border-radius:2px;border:1px solid rgba(255,255,255,.14);
+  background:rgba(255,255,255,.045);color:var(--tx-2);white-space:nowrap}
+.chip.lock{border-color:rgba(224,74,60,.3);background:rgba(224,74,60,.1);color:#ffb8ae}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   9. 快捷键表 / 图例 / 尾巴
+   ═══════════════════════════════════════════════════════════════════════ */
+.keys{width:100%;border-collapse:separate;border-spacing:0 3px;font-size:12px}
+.keys td{padding:4px 6px;background:rgba(255,255,255,.032)}
+.keys td:first-child{width:96px;border-radius:2px 0 0 2px}
+.keys td:last-child{border-radius:0 2px 2px 0;color:var(--tx-2)}
+kbd{display:inline-block;min-width:20px;text-align:center;padding:2px 5px;margin-right:3px;
+  border:var(--rp) solid var(--line);border-radius:2px;background:linear-gradient(180deg,#3a3149,#241d33);
+  font:11px/1.2 var(--mono);color:#e6ddf3;box-shadow:inset 1px 1px 0 rgba(255,255,255,.14),0 2px 0 rgba(0,0,0,.45)}
+.legend{display:flex;flex-wrap:wrap;gap:9px;margin-top:9px}
+.legend span{display:inline-flex;align-items:center;gap:5px;font:11px/1 var(--mono);color:var(--tx-2)}
+.legend i{width:9px;height:9px;display:inline-block;border:1px solid rgba(0,0,0,.7);flex:none}
+.note{font:11.5px/1.65 var(--sans);color:var(--tx-3);margin:9px 0 0;
+  padding:7px 9px;border-left:3px solid var(--purpur-d);background:rgba(189,147,207,.07)}
+.note b{color:var(--tx-2)}
+/* 可折叠的实测说明：默认收起，界面更清爽，需要时再展开看依据 */
+details.note-d{margin-top:9px;border-left:3px solid var(--purpur-d);background:rgba(189,147,207,.07);border-radius:2px}
+details.note-d > summary{cursor:pointer;list-style:none;padding:7px 9px;display:flex;align-items:center;gap:7px;
+  font:11.5px/1.5 var(--sans);color:var(--tx-2);user-select:none}
+details.note-d > summary::-webkit-details-marker{display:none}
+details.note-d > summary::before{content:"▸";font-size:10px;color:var(--purpur);transition:transform .13s linear}
+details.note-d[open] > summary::before{transform:rotate(90deg)}
+details.note-d > summary:hover{color:#fff}
+details.note-d > .body{padding:0 10px 9px;font:11.5px/1.68 var(--sans);color:var(--tx-3)}
+details.note-d > .body b{color:var(--tx-2)}
+/* 未标定遗迹：压成一行 chip，不占版面 */
+.pending{margin-top:8px;padding:6px 8px;border:var(--rp) solid var(--line);border-radius:var(--rp);
+  background:linear-gradient(180deg,#1f1a2c,#151020);display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.pending .cap{font:10.5px/1 var(--mono);color:var(--tx-3);margin-right:2px}
+.pending .chip{opacity:.72}
+.hr{height:var(--rp);background:var(--line);box-shadow:0 1px 0 rgba(255,255,255,.07);margin:11px 0}
+
+footer.bar{display:flex;align-items:center;gap:12px;flex-wrap:wrap;
+  padding:9px 12px;border:var(--rp) solid var(--line);border-radius:var(--r);
+  background:linear-gradient(180deg,rgba(36,28,50,.9),rgba(18,13,28,.95));
+  box-shadow:inset 1px 1px 0 var(--hi),inset -1px -1px 0 var(--lo),0 4px 0 rgba(0,0,0,.4);
+  font:11.5px/1.5 var(--mono);color:var(--tx-3)}
+footer.bar .safe{display:inline-flex;align-items:center;gap:6px;color:#a8efc4}
+footer.bar .safe svg{flex:none}
+footer.bar code{font:11.5px/1 var(--mono);color:var(--tx-2);background:rgba(255,255,255,.05);
+  padding:2px 5px;border-radius:2px;border:1px solid rgba(255,255,255,.08)}
+
+/* ═══════════════════════════════════════════════════════════════════════
+  10. Toast（成就弹窗式） / 模态
+   ═══════════════════════════════════════════════════════════════════════ */
+.toasts{position:fixed;right:14px;bottom:14px;z-index:40;display:flex;flex-direction:column;gap:8px;
+  pointer-events:none;max-width:min(340px,86vw)}
+.toast{display:flex;align-items:center;gap:10px;padding:9px 11px;
+  border:var(--rp) solid var(--line);border-radius:var(--rp);
+  background:linear-gradient(180deg,#2b2239,#191325);
+  box-shadow:inset 1px 1px 0 rgba(255,255,255,.12),inset -1px -1px 0 rgba(0,0,0,.55),
+             0 4px 0 rgba(0,0,0,.45),0 12px 30px rgba(0,0,0,.5);
+  animation:toastIn .3s cubic-bezier(.2,1.3,.4,1)}
+.toast.out{animation:toastOut .28s ease forwards}
+@keyframes toastIn{from{opacity:0;transform:translateX(24px)}to{opacity:1;transform:none}}
+@keyframes toastOut{to{opacity:0;transform:translateX(24px)}}
+.toast .ti{width:26px;height:26px;flex:none;display:grid;place-items:center;border:var(--rp) solid var(--line);
+  background:#0e0b16;font-size:13px;border-radius:2px}
+.toast .tt{font-weight:700;font-size:12.5px;color:#fff}
+.toast .td{font:11px/1.4 var(--mono);color:var(--tx-3)}
+
+.modal{position:fixed;inset:0;z-index:50;display:grid;place-items:center;padding:18px;
+  background:rgba(4,3,8,.72);backdrop-filter:blur(3px)}
+.modal[hidden]{display:none}
+.modal .box{width:min(440px,94vw);border:var(--rp) solid var(--line);border-radius:var(--r);
+  background:linear-gradient(180deg,#2a2138,#161022);
+  box-shadow:inset var(--rp) var(--rp) 0 var(--hi),inset calc(-1 * var(--rp)) calc(-1 * var(--rp)) 0 var(--lo),
+             0 8px 0 rgba(0,0,0,.5),0 26px 70px rgba(0,0,0,.7)}
+.modal .b{padding:14px}
+.modal h3{margin:0 0 8px;font-size:14px;color:#fff;text-shadow:var(--px) var(--px) 0 rgba(0,0,0,.7)}
+.modal p{margin:0 0 14px;font-size:12.5px;color:var(--tx-2);line-height:1.7}
+.modal .acts{display:flex;gap:9px;justify-content:flex-end;flex-wrap:wrap}
+
+.linkbtn{background:none;border:0;padding:0;color:var(--purpur);font:inherit;cursor:pointer;text-decoration:underline dotted}
+.linkbtn:hover{color:#e3c6f0}
+
+@media (prefers-reduced-motion:reduce){
+  *{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}
+}
+body.shaking{animation:shake .4s cubic-bezier(.36,.07,.19,.97) both}
+@keyframes shake{
+  0%{transform:translate(0,0)}10%{transform:translate(8px,0)}20%{transform:translate(-8px,0)}
+  32%{transform:translate(6px,-5px)}44%{transform:translate(-6px,5px)}56%{transform:translate(5px,3px)}
+  68%{transform:translate(-5px,-3px)}80%{transform:translate(3px,0)}92%{transform:translate(-2px,0)}
+  100%{transform:translate(0,0)}}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   9. 地图分离 —— 视图模式（同一份文件，三个视图，各自只显示自己那部分）
+      view=full  完整控制台（默认；点「分离」后 map 区让出来）
+      view=map   独立地图窗口：只有地图，尽量省地方
+      view=panel 控制台（地图已被分离，让出地图区）
+   ═══════════════════════════════════════════════════════════════════════ */
+
+/* ── 分离按钮 / 回归按钮：按视图只留该用的那个 ── */
+/* btnDetachBack 只在独立地图窗口里出现；btnAttach 躲在「已分离」占位里，
+   占位本身默认 display:none，所以不用单独隐藏它 */
+#btnDetachBack{display:none}
+body.view-map #btnDetach{display:none}
+body.view-map #btnDetachBack{display:inline-flex}
+
+/* ── 主窗口的「地图已分离」占位 ── */
+#detachNote{display:none;align-items:center;gap:10px;flex-wrap:wrap}
+#panelMap.is-detached .pad{display:none}
+#panelMap.is-detached .head .seg,
+#panelMap.is-detached .head .sub.nav,
+#panelMap.is-detached .head #btnDetach{display:none}
+#panelMap.is-detached #detachNote{display:flex}
+#detachNote .dn-ico{font:700 15px/1 var(--mono);color:var(--purpur)}
+#detachNote .dn-t{font-size:12.5px;color:var(--tx-2)}
+#detachNote .dn-t b{color:var(--tx)}
+
+/* ── 独立地图窗口（无边框）：只留地图 + 一条可拖拽的细头 ── */
+.map-dragbar{display:none}
+body.view-map{overflow:hidden;background:transparent}
+body.view-map .app{max-width:none;padding:0;gap:0;height:100vh;min-height:0;overflow:hidden}
+body.view-map .grid{display:block;gap:0}
+body.view-map .topbar,
+body.view-map .grid > .col:nth-of-type(2),
+body.view-map #panelFeed,
+body.view-map #panelMap .readouts,
+body.view-map #panelMap .map-beat,
+body.view-map #panelMap .hr,
+body.view-map #panelMap .head .seg,
+body.view-map #panelMap .head .sub,
+body.view-map #panelMap .head h2,
+body.view-map #panelMap .head .ico-slot,
+body.view-map #mapBadge,
+body.view-map .legend{display:none!important}
+body.view-map .panel{border:0;border-radius:0;background:transparent;box-shadow:none;height:100vh}
+body.view-map .panel::after{display:none}
+body.view-map .pad{padding:0}
+body.view-map .map-grid{display:block;gap:0}
+body.view-map .map-stage{height:100vh;border:0;border-radius:0}
+/* 顶部 22px 是拖拽条，HUD 让开它，别叠在一起 */
+body.view-map .map-hud{top:28px}
+body.view-map #map{width:100%;height:100%;margin:0}
+body.view-map #panelMap .head{position:absolute;right:6px;top:24px;z-index:9;padding:0;
+  border:0;background:transparent;box-shadow:none}
+body.view-map .map-dragbar{display:flex;position:fixed;left:0;right:0;top:0;height:22px;z-index:8;
+  align-items:center;gap:8px;padding:0 8px;
+  background:linear-gradient(180deg,rgba(24,19,36,.9),rgba(12,10,20,.55));
+  font:10.5px/1 var(--mono);color:#b9aecb;letter-spacing:.08em}
+body.view-map .map-dragbar .grow{flex:1 1 auto}
+body.view-map .map-dragbar .hb{color:#7ee0a0}
+body.view-map .map-dragbar .hb.off{color:#d8a;}
+
+/* 控制台窗口在「地图已分离」时，地图卡只占一条：省下来的地方全给下面两块 */
+body.view-panel #panelMap.is-detached .head{border-bottom:0}
+#panelMap.is-detached{padding:2px 0}
+</style>
+</head>
+<body>
+
+<div class="app">
+
+  <!-- 独立地图窗口的无边框拖拽条（只在 view=map 显示；拖动它可移动窗口） -->
+  <div class="map-dragbar pywebview-drag-region" id="mapDragbar">
+    <span>⧉ 末地跑图地图</span>
+    <span class="grow"></span>
+    <span class="hb" id="dragHb">● 实时</span>
+  </div>
+
+  <!-- ═══════════════ 顶栏 ═══════════════ -->
+  <header class="topbar">
+    <div class="brand">
+      <span class="logo" id="logo" aria-hidden="true"></span>
+      <div>
+        <h1>末地跑图提醒</h1>
+        <p>END RUN ALERT · 我的世界 · 方块传说服务器</p>
+      </div>
+    </div>
+    <span class="grow"></span>
+    <div class="pills">
+      <span class="pill" id="pill-run"><span class="dot pulse on"></span><span id="runWord">运行中 · </span><b id="uptime">00:00:00</b></span>
+      <span class="pill" id="pill-src"><span class="dot on"></span>坐标源 <b id="srcName">CoordBridge</b></span>
+      <span class="pill" id="pill-mode"><span class="dot warn"></span>提醒 <b id="modeName">auto</b></span>
+      <span class="pill" id="pill-live" title="预览＝内置演示数据；运行模式＝由后端（桌面壳 / Python 主程序）推送真实数据"><span class="dot off"></span><b id="liveName">预览 · 演示数据</b></span>
+      <button class="btn sm ghost" id="btnHelp" type="button" title="查看快捷键（H）">帮助</button>
+    </div>
+  </header>
+
+  <div class="grid">
+    <!-- ═══════════════ 左列：跑图状态 + 提醒流 ═══════════════ -->
+    <div class="col">
+
+      <!-- 跟随地图预览（跑图状态） -->
+      <section class="panel" id="panelMap" aria-labelledby="h-map">
+        <div class="head">
+          <span class="ico-slot" id="ic-map" aria-hidden="true"></span>
+          <h2 id="h-map">跑图状态 · 跟随地图预览</h2>
+          <span class="sub" id="mapSub">DIM1 / mw$default</span>
+          <span class="sub nav" id="mapNav">→ 航点 1/8 · 剩 —</span>
+          <span class="grow"></span>
+          <div class="seg" role="group" aria-label="地图图层">
+            <button class="btn sm" data-layer="auto" type="button">层 auto</button>
+            <button class="btn sm" data-layer="surface" type="button">地表</button>
+            <button class="btn sm" data-layer="cave" type="button">洞穴</button>
+          </div>
+          <button class="btn sm ghost" id="btnDetach" type="button"
+                  title="把地图分离成独立小窗口，控制台这里腾出地方（D）">⧉ 分离地图</button>
+          <button class="btn sm ghost" id="btnDetachBack" type="button"
+                  title="把地图收回控制台窗口">⤢ 收回控制台</button>
+        </div>
+
+        <!-- 地图被分离后，控制台这一块只留一条 -->
+        <div class="pad" id="detachNote">
+          <span class="dn-ico">⧉</span>
+          <span class="dn-t">地图已分离到<b>独立窗口</b> —— 这一块已腾空，可把窗口缩到只剩设置与提醒流</span>
+          <span class="grow" style="flex:1 1 auto"></span>
+          <button class="btn sm" id="btnAttach" type="button" title="把地图收回控制台窗口（D）">⤢ 收回地图</button>
+        </div>
+        <div class="pad">
+          <div class="map-grid">
+            <!-- 画布 -->
+            <div>
+              <div class="map-stage">
+                <canvas id="map" width="560" height="560" role="img"
+                        aria-label="末地已探索区域俯视图，含玩家位置与已发现遗迹标记"></canvas>
+                <div class="map-hud" id="mapHud" aria-hidden="true"></div>
+                <div class="badge" id="mapBadge">560×560 · 1px=1格</div>
+                <div class="scanline" id="scanline"></div>
+              </div>
+              <div class="legend">
+                <span><i style="background:#dbde9f"></i>末地石</span>
+                <span><i style="background:#a97ea9"></i>紫珀</span>
+                <span><i style="background:#242038"></i>未探索</span>
+                <span><i style="background:#dc463c"></i>玩家</span>
+                <span><i style="background:#e8e8f0"></i>白金 ★</span>
+                <span><i style="background:#5ad2c8"></i>巫师 ◆</span>
+                <span><i style="background:#dc463c"></i>武士 ▲</span>
+              </div>
+            </div>
+
+            <!-- 读数 -->
+            <div class="readouts">
+              <div class="coord">
+                <div class="c"><b id="cX">0</b><span>X</span></div>
+                <div class="c"><b id="cY">68</b><span>Y</span></div>
+                <div class="c"><b id="cZ">0</b><span>Z</span></div>
+              </div>
+              <div class="stats">
+                <div class="stat"><div class="k">维度</div><div class="v sm acc" id="sDim">DIM1 末地</div></div>
+                <div class="stat"><div class="k">地图源</div><div class="v sm" id="sMap">mem 内存直读</div></div>
+                <div class="stat"><div class="k">视野</div><div class="v" id="sSpan">560 格</div></div>
+                <div class="stat"><div class="k">渲染耗时</div><div class="v" id="sMs">42 ms</div></div>
+                <div class="stat"><div class="k">缺瓦片</div><div class="v" id="sMiss">0</div></div>
+                <div class="stat"><div class="k">内存延迟</div><div class="v" id="sLag">0.4 s</div></div>
+                <div class="stat"><div class="k">已扫区块</div><div class="v acc" id="sChunks">0</div></div>
+                <div class="stat"><div class="k">已记录遗迹</div><div class="v good" id="sFound">0 处</div></div>
+              </div>
+              <div class="hr"></div>
+              <div class="row between">
+                <span class="lbl">扫描节拍 <span class="hint">每 0.6 s 轮询新落盘区块</span></span>
+                <span class="val" id="beatVal">就绪</span>
+              </div>
+              <div class="row" style="margin-top:6px">
+                <span class="beat" id="beat" aria-hidden="true"></span>
+              </div>
+              <div class="row between" style="margin-top:10px">
+                <span class="lbl">缩放 <span class="hint">1px = N 格</span></span>
+                <div class="seg" role="group" aria-label="缩放档位" id="segZoom">
+                  <button class="btn sm" data-zoom="1" type="button">×1</button>
+                  <button class="btn sm" data-zoom="2" type="button">×2</button>
+                  <button class="btn sm" data-zoom="4" type="button">×4</button>
+                  <button class="btn sm" data-zoom="8" type="button">×8</button>
+                </div>
+              </div>
+              <div class="row between" style="margin-top:9px">
+                <label class="sw"><input type="checkbox" id="tgGrid" checked><span class="track"></span><span class="cap">128 格网格</span></label>
+                <label class="sw"><input type="checkbox" id="tgHud" checked><span class="track"></span><span class="cap">HUD 叠加</span></label>
+              </div>
+            </div>
+          </div>
+
+          <!-- 心跳条 -->
+          <div class="hr map-beat"></div>
+          <div class="row between map-beat">
+            <span class="lbl">轮询心跳 <span class="hint" id="beatNote">等待下一拍…</span></span>
+            <span class="lbl"><b id="pollCount" style="color:var(--purpur)">0</b> 次</span>
+          </div>
+          <div class="map-beat" id="beatBar" style="margin-top:6px;height:10px;border:2px solid var(--line);background:#12101b;
+               box-shadow:inset 1px 1px 0 rgba(0,0,0,.7);position:relative;overflow:hidden">
+            <i id="beatFill" style="position:absolute;inset:0 auto 0 0;width:0%;
+               background:linear-gradient(180deg,#8ef0a8,#3f9b62);display:block"></i>
+          </div>
+        </div>
+      </section>
+
+      <!-- 提醒流 -->
+      <section class="panel" id="panelFeed" aria-labelledby="h-feed">
+        <div class="head">
+          <span class="ico-slot" id="ic-feed" aria-hidden="true"></span>
+          <h2 id="h-feed">遗迹发现流</h2>
+          <span class="sub" id="feedSub">最近 0 条</span>
+          <span class="grow"></span>
+          <button class="btn sm ghost" id="btnExport" type="button">导出日志</button>
+          <button class="btn sm danger" id="btnClearFeed" type="button">清空列表</button>
+        </div>
+        <div class="feed" id="feed" role="log" aria-live="polite" aria-label="遗迹发现记录"></div>
+      </section>
+
+    </div>
+
+    <!-- ═══════════════ 右列：提醒设置 + 手动控制 ═══════════════ -->
+    <div class="col">
+
+      <!-- 提醒设置 -->
+      <section class="panel" aria-labelledby="h-set">
+        <div class="head">
+          <span class="ico-slot" id="ic-set" aria-hidden="true"></span>
+          <h2 id="h-set">提醒设置</h2>
+          <span class="grow"></span>
+          <button class="btn sm ghost" id="btnDefaults" type="button">恢复默认</button>
+        </div>
+        <div class="pad">
+
+          <div class="lbl" style="margin-bottom:7px">提醒方式 <span class="hint">r 键循环</span></div>
+          <div class="seg" id="segMode" role="group" aria-label="提醒方式"></div>
+          <p class="note" id="modeNote"></p>
+
+          <div class="hr"></div>
+          <div class="lbl" style="margin-bottom:7px">提醒通道</div>
+          <div class="row" style="gap:14px">
+            <label class="sw"><input type="checkbox" id="chSound"><span class="track"></span><span class="cap">水滴音</span></label>
+            <label class="sw"><input type="checkbox" id="chShake"><span class="track"></span><span class="cap">窗口抖动</span></label>
+          </div>
+          <div class="row" style="gap:14px;margin-top:8px">
+            <label class="sw"><input type="checkbox" id="chFlash"><span class="track"></span><span class="cap">任务栏闪烁</span></label>
+            <label class="sw"><input type="checkbox" id="chMark"><span class="track"></span><span class="cap">地图打点</span></label>
+          </div>
+          <details class="note-d">
+            <summary>为什么「只有声音真正有效」？</summary>
+            <div class="body">
+              使用场景是<b>笔记本屏挂机跑图、外接屏刷视频</b>，眼睛不在游戏这一侧 —— 地图窗口、任务栏、
+              游戏画面全都在不看的那块屏上。因此：<br>
+              · 水滴音做了<b>满刻度归一化 + 连响三下</b>，目的就是从视频声里穿出来；<br>
+              · <b>窗口抖动默认关闭</b>，只在「提醒方式 = both」时启用（它本来是为「余光扫地图」设计的）；
+              <br>· 任务栏闪烁用 <b>FlashWindowEx</b>，不抢焦点、不打断游戏。
+            </div>
+          </details>
+
+          <div class="hr"></div>
+          <div class="row between">
+            <span class="lbl">音量 <span class="hint">波形峰值归一化</span></span>
+            <span class="val" id="volVal">1.50</span>
+          </div>
+          <div class="row" style="margin-top:4px">
+            <input type="range" id="vol" min="0.2" max="2" step="0.05" value="1.5" aria-label="提醒音量">
+          </div>
+          <div class="row between">
+            <span class="lbl">连响次数 <span class="hint">从视频声里穿出来</span></span>
+            <span class="val" id="repVal">3 下</span>
+          </div>
+          <div class="row" style="margin-top:4px">
+            <input type="range" id="rep" min="1" max="5" step="1" value="3" aria-label="连响次数">
+          </div>
+          <details class="note-d">
+            <summary id="volSum">音量与响度：为什么 > 1 也不会破音</summary>
+            <div class="body" id="volNote"></div>
+          </details>
+
+          <div class="hr"></div>
+          <div class="lbl" style="margin-bottom:7px">遗迹类型 <span class="hint">判据来自 ruins.json v5 · 全部实测标定</span></div>
+          <div class="types" id="types"></div>
+          <div class="pending" id="pending"></div>
+
+          <div class="hr"></div>
+          <div class="lbl" style="margin-bottom:7px">去重与重置</div>
+          <div class="row between">
+            <span class="lbl">去重半径 <span class="hint">同点不重复报</span></span>
+            <span class="val" id="ddVal">96 格</span>
+          </div>
+          <div class="row" style="margin-top:4px">
+            <input type="range" id="ddr" min="16" max="256" step="16" value="96" aria-label="去重半径">
+          </div>
+          <div class="row between">
+            <span class="lbl">同类冷却</span>
+            <span class="val" id="cdVal">300 s</span>
+          </div>
+          <div class="row" style="margin-top:4px">
+            <input type="range" id="cd" min="30" max="900" step="30" value="300" aria-label="同类冷却秒数">
+          </div>
+          <div class="row between" style="margin-top:9px">
+            <label class="sw"><input type="checkbox" id="tgRare" checked><span class="track"></span><span class="cap">只报稀有</span></label>
+            <label class="sw"><input type="checkbox" id="tgDist" checked><span class="track"></span><span class="cap">距离与方位提示</span></label>
+          </div>
+          <div class="row" style="margin-top:10px">
+            <span class="pill warn"><span class="dot warn"></span>本周期 <b id="epoch">—</b></span>
+            <span class="pill"><span class="dot"></span>下次重置 <b id="resetIn">—</b></span>
+          </div>
+          <details class="note-d">
+            <summary>为什么每周期都要清空去重库？</summary>
+            <div class="body">
+              冒险世界<b>每周一、周五重置</b>，遗迹坐标随之变化 —— 同一坐标在新周期里是另一处地形。
+              若不清空去重库，新一轮的遗迹会被「±96 格内已报过」判成重复而<b>静默丢弃</b>，
+              表现为「跑图很久却一直不提醒」。执行入口在右侧「手动控制 → 清空去重库」。
+            </div>
+          </details>
+
+        </div>
+      </section>
+
+      <!-- 手动控制 -->
+      <section class="panel" aria-labelledby="h-ctl">
+        <div class="head">
+          <span class="ico-slot" id="ic-ctl" aria-hidden="true"></span>
+          <h2 id="h-ctl">手动控制</h2>
+          <span class="grow"></span>
+          <span class="sub" id="ctlState">运行中</span>
+        </div>
+        <div class="pad">
+          <div class="row" style="gap:9px">
+            <button class="btn primary" id="btnScan" type="button" style="flex:1 1 128px">立即扫描 <span class="kbd">S</span></button>
+            <button class="btn warn" id="btnPause" type="button" style="flex:1 1 128px">暂停扫描 <span class="kbd">空格</span></button>
+          </div>
+          <div class="row" style="gap:9px;margin-top:9px">
+            <button class="btn" id="btnPin" type="button" style="flex:1 1 128px">打点当前位置</button>
+            <button class="btn" id="btnReset" type="button" style="flex:1 1 128px">复位窗口与视图</button>
+          </div>
+
+          <div class="hr"></div>
+          <div class="lbl" style="margin-bottom:7px">试听提醒 <span class="hint">听声辨遗迹</span></div>
+          <div class="seg" id="segTone" role="group" aria-label="试听音高">
+            <button class="btn sm" data-tone="drop_high" type="button">★ 白金 高音</button>
+            <button class="btn sm" data-tone="drop_mid" type="button">◆ 巫师 中音</button>
+            <button class="btn sm" data-tone="drop_low" type="button">▲ 武士 低音</button>
+          </div>
+          <div class="row" style="gap:9px;margin-top:9px">
+            <button class="btn ghost" id="btnShakeTest" type="button" style="flex:1 1 118px">抖动预览</button>
+            <button class="btn ghost" id="btnFlashTest" type="button" style="flex:1 1 118px">闪烁预览</button>
+          </div>
+
+          <div class="hr"></div>
+          <div class="row" style="gap:9px">
+            <button class="btn ghost" id="btnSrc" type="button" style="flex:1 1 128px">切换坐标源</button>
+            <button class="btn ghost" id="btnLayer" type="button" style="flex:1 1 128px">切换图层</button>
+          </div>
+          <div class="row" style="gap:9px;margin-top:9px">
+            <button class="btn danger block" id="btnResetDb" type="button">清空去重库（每周期开始前执行）</button>
+          </div>
+
+          <div class="hr"></div>
+          <div class="lbl" style="margin-bottom:6px">快捷键</div>
+          <table class="keys">
+            <tbody>
+              <tr><td><kbd>S</kbd></td><td>立即扫描一轮</td></tr>
+              <tr><td><kbd>空格</kbd></td><td>暂停 / 恢复扫描</td></tr>
+              <tr><td><kbd>R</kbd></td><td>循环提醒方式（auto→sound→both→flag→off）</td></tr>
+              <tr><td><kbd>C</kbd></td><td>切换图层 auto / surface / cave</td></tr>
+              <tr><td><kbd>V</kbd></td><td>切换坐标源 bridge / ocr / demo</td></tr>
+              <tr><td><kbd>Z</kbd> <kbd>X</kbd></td><td>缩小 / 放大（同 Xaero 滚轮）</td></tr>
+              <tr><td><kbd>G</kbd> <kbd>M</kbd></td><td>网格 / HUD 叠加 开关</td></tr>
+              <tr><td><kbd>D</kbd></td><td>把地图分离成独立窗口 / 收回</td></tr>
+              <tr><td><kbd>H</kbd></td><td>帮助</td></tr>
+            </tbody>
+          </table>
+
+          <p class="note">
+            本界面与跟随地图窗口是<b>同一套状态</b>：窗口里按 <kbd>r</kbd> 换提醒方式、
+            按 <kbd>c</kbd> 换图层，这里的选择会同步显示，反之亦然。
+          </p>
+        </div>
+      </section>
+
+    </div>
+  </div>
+
+  <!-- ═══════════════ 底栏 ═══════════════ -->
+  <footer class="bar">
+    <span class="safe" id="safeTag"><span class="dot on"></span>只读已探索数据 · 不扫视距外 · 不自动操作游戏</span>
+    <span class="grow" style="flex:1 1 auto"></span>
+    <span>提醒日志 <code>out/ruin_alerts.log</code></span>
+    <span>去重库 <code>out/found_ruins.json</code></span>
+    <span>判据 <code>ruins.json v5</code></span>
+  </footer>
+</div>
+
+<div class="toasts" id="toasts" aria-live="polite" aria-atomic="false"></div>
+
+<!-- 模态：危险操作 / 帮助 -->
+<div class="modal" id="modal" hidden>
+  <div class="box" role="dialog" aria-modal="true" aria-labelledby="mTitle">
+    <div class="head"><span class="ico-slot" id="ic-modal" aria-hidden="true"></span><h2 id="mTitle">确认</h2></div>
+    <div class="b">
+      <h3 id="mH" style="display:none"></h3>
+      <div id="mBody"></div>
+      <div class="acts" id="mActs"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ═════════════════════════════════════════════════════════════════════════
+   末地跑图提醒 · 前端界面  ——  独立模块主逻辑（IIFE，无全局污染）
+   所有参数取自项目实测值：
+     · 遗迹三类判据      ruins.json v5（window 5×5 区块 / min_purity 0.80）
+     · 去重半径 96 格     ruins.json dedupe_blocks
+     · 轮询 0.6 s         followmap/app.py RUIN_POLL_S
+     · 音量 1.5 / 连响 3  app.py --ruin-volume / --ruin-repeat 默认值
+     · 网格线 128 格      view.py GRID_COLOR 步长
+     · 缩放档 1/2/4/8     store.py ZOOMS
+   ═════════════════════════════════════════════════════════════════════════ */
+(function () {
+  'use strict';
+
+  /* ───────────────────────── 1. 常量表 ───────────────────────── */
+  var RUINS = [
+    { id:'白金星殿',   icon:'★', color:[232,232,240], css:'#e8e8f0', sound:'drop_high',
+      tone:'高音 980→2400Hz', rar:'Boss 级', judge:'infested_stone_bricks ≥ 10',
+      note:'虫蛀石砖独占：4/4 座白金独有，全服窗口最大值 0', ready:true },
+    { id:'巫师的圣修所', icon:'◆', color:[90,210,200],  css:'#5ad2c8', sound:'drop_mid',
+      tone:'中音 760→1900Hz', rar:'稀有', judge:'polished_blackstone_bricks ≥ 20',
+      note:'磨制黑石砖独占：37/37 座巫师独有，武士 / 白金为 0', ready:true },
+    { id:'武士的修行地', icon:'▲', color:[220,70,60],   css:'#dc463c', sound:'drop_low',
+      tone:'低音 520→1350Hz', rar:'稀有', judge:'@end_brick ≥ 30 且 黑石系装饰件 ≥ 1',
+      note:'无独占 id：靠末地石砖主体 + 黑石楼梯/镀金黑石 组合，纯度 0.80 挡住紫珀殿', ready:true },
+    { id:'灵虎之塔',   icon:'✦', color:[190,120,235], css:'#be78eb', sound:'drop_mid',
+      tone:'未标定', rar:'稀有', judge:'黑曜石 + 紫水晶块（待标定）', note:'未做真机标定，暂不参与判定', ready:false },
+    { id:'灵魂坟场',   icon:'■', color:[120,220,190], css:'#78dcbe', sound:'drop_mid',
+      tone:'未标定', rar:'常见', judge:'青绿格栅 + 末地石（待标定）', note:'未做真机标定，暂不参与判定', ready:false },
+    { id:'幽鬼坟冢',   icon:'●', color:[80,140,210],  css:'#508cd2', sound:'drop_mid',
+      tone:'未标定', rar:'常见', judge:'深青蓝底 + 青绿发光纹（待标定）', note:'未做真机标定，暂不参与判定', ready:false }
+  ];
+  var byId = {}; RUINS.forEach(function (r) { byId[r.id] = r; });
+
+  /* 提醒方式：与 alerts.py MODES 完全一致（off / flag / shake / sound / both / auto） */
+  var MODES = [
+    { id:'auto',  cap:'auto',  full:'自动',     ch:{sound:true,  shake:false, flash:true },
+      desc:'水滴音 + 任务栏闪烁 + 地图打点（默认；不含抖动）' },
+    { id:'sound', cap:'sound', full:'仅声音',   ch:{sound:true,  shake:false, flash:false},
+      desc:'只响水滴音，其它通道全关；适合有外接音箱时' },
+    { id:'both',  cap:'both',  full:'音+抖+闪', ch:{sound:true,  shake:true,  flash:true },
+      desc:'在 auto 基础上加窗口抖动；余光看地图的场景用' },
+    { id:'flag',  cap:'flag',  full:'仅闪任务栏',ch:{sound:false, shake:false, flash:true },
+      desc:'完全不发声，只闪任务栏；深夜 / 会议场景' },
+    { id:'off',   cap:'off',   full:'全关',     ch:{sound:false, shake:false, flash:false},
+      desc:'三通道全关，仅写日志与打点留档' }
+  ];
+  var MODE_CYCLE = ['auto', 'sound', 'both', 'flag', 'off'];   // 与 alerts.py CYCLE 一致
+  var TONES = { drop_high:{f0:980, f1:2400, ms:105}, drop_mid:{f0:760, f1:1900, ms:120}, drop_low:{f0:520, f1:1350, ms:145} };
+
+  /* 真实已发现样本（取自 out/found_ruins.json，用于把预览图放在真实坐标上） */
+  var SEED_FOUND = [
+    { type:'巫师的圣修所', x:8086,  z:-38744, pure:.997, at:'00:12:40' },
+    { type:'武士的修行地', x:4676,  z:-38965, pure:.966, at:'00:12:40' },
+    { type:'武士的修行地', x:4761,  z:-39207, pure:.978, at:'00:12:40' },
+    { type:'巫师的圣修所', x:4625,  z:-46008, pure:.995, at:'00:12:41' },
+    { type:'巫师的圣修所', x:12658, z:-38952, pure:.920, at:'00:12:43' },
+    { type:'巫师的圣修所', x:4641,  z:-48337, pure:.945, at:'00:12:44' },
+    { type:'巫师的圣修所', x:9225,  z:-38843, pure:.906, at:'00:12:44' },
+    { type:'武士的修行地', x:8870,  z:-38800, pure:.979, at:'00:12:45' },
+    { type:'巫师的圣修所', x:4622,  z:-43857, pure:.959, at:'00:12:46' },
+    { type:'武士的修行地', x:19428, z:-39010, pure:.979, at:'00:12:47' },
+    { type:'武士的修行地', x:19834, z:-39058, pure:.982, at:'00:23:36' },
+    { type:'白金星殿',   x:20464, z:-39084, pure:.891, at:'00:23:55' },
+    { type:'巫师的圣修所', x:20663, z:-39128, pure:.923, at:'00:24:27' }
+  ];
+
+  var LAYERS = ['auto', 'surface', 'cave'];
+  var LAYER_CAP = { auto:'层 auto', surface:'地表', cave:'洞穴' };
+  var SOURCES = ['bridge', 'ocr', 'demo'];
+  var SOURCE_CAP = { bridge:'CoordBridge', ocr:'屏幕 OCR', demo:'Demo 巡游' };
+  var SOURCE_DOT = { bridge:'on', ocr:'warn', demo:'off' };
+  var ZOOMS = [1, 2, 4, 8];
+  var REGION = 512, CHUNK = 16, GRID_STEP = 128;
+
+  var DEFAULTS = {
+    mode:'auto', vol:1.5, rep:3, ddr:96, cd:300, rare:true, dist:true,
+    enabled:{ '白金星殿':true, '巫师的圣修所':true, '武士的修行地':true,
+              '灵虎之塔':false, '灵魂坟场':false, '幽鬼坟冢':false },
+    zoom:1, grid:true, hudOn:true, layer:'auto'
+  };
+
+  /* ───────────────────────── 2. 状态 ───────────────────────── */
+  var S = {
+    mode:DEFAULTS.mode,
+    vol:DEFAULTS.vol, rep:DEFAULTS.rep, ddr:DEFAULTS.ddr, cd:DEFAULTS.cd,
+    rare:DEFAULTS.rare, dist:DEFAULTS.dist,
+    enabled:Object.assign({}, DEFAULTS.enabled),
+    zoom:1, grid:true, hudOn:true, layer:'auto',
+    running:true, source:'bridge',
+    scanned:0, polls:0, miss:0, renderMs:42, memLag:0.4, memBuilds:812,
+    startTs:Date.now(), epoch:'2026-10-12', found:[], feed:[],
+    px:4625, pz:-46008, py:68, heading:0.6,
+    lastHit:null, scannedChunks:new Set()
+  };
+
+  /* 适配器：默认 null → 走内置演示数据；后端可注入真实数据源 */
+  var adapter = null;
+
+  /* ── 运行模式（后端接管真实数据）──────────────────────────────────
+     liveInfo.on = true 时：地图**只画磁盘上真实存在的区块**（CoordBridge 落盘的
+     CBB1 快照），坐标 / 读数来自后端推送；on = false 时走内置演示数据源（预览）。
+     两条路共用同一套渲染，只在 tile() / isExplored() 里分支，互不污染。
+     URL 带 ?live=1 或 #live=1 时开机即进运行模式（桌面壳用 #，因为 file:// 下的
+     ?query 会被编码成 %3F，导致 .html 后缀识别不出来）。 */
+  var BOOT_LIVE = /[?&#]live=1/.test(location.search + location.hash);
+  /* 视图模式（同一份文件，三种视图；桌面壳开两个窗口各用一个）：
+       full  完整控制台（默认）
+       map   独立地图窗口：只显示地图，尽量占得少
+       panel 控制台窗口，且地图已被分离出去（让出地图区）
+     用 #view=xxx 传（理由同 live：file:// 下 ?query 会被编码成 %3F）。 */
+  var VIEW = (location.hash.match(/[#&]view=([a-z]+)/) || [])[1] || 'full';
+  if (VIEW !== 'full') document.body.className = (document.body.className + ' view-' + VIEW).trim();
+  /* 这个窗口现在要不要画地图：地图窗口永远画；控制台窗口在地图被分离时就不画了
+     （既省 CPU，也让界面真的"腾出地方"） */
+  var mapDetached = (VIEW === 'panel');
+  function drawsMap() { return VIEW === 'map' || !mapDetached; }
+
+  var liveInfo = { on: !!BOOT_LIVE, dim:null, world:null, server:null, inGame:false,
+                   age:null, note:'', nav:'', hb:0 };
+  var liveTerrain = new Map();     // 'cx,cz' -> {pal:[], ys:[], idx:[]}（真实区块）
+  var liveTiles = new Map();       // 真实地形贴图缓存（与演示贴图分开存）
+  var EMPTY_TILE = null;
+  var DIM_CAP = { 'minecraft:the_end':'DIM1 末地', 'minecraft:overworld':'DIM0 主世界',
+                  'minecraft:the_nether':'DIM-1 下界' };
+  /* 真实地表方块 → 颜色（末地主色调；未知方块用名字哈希兜底，保证同块同色） */
+  var BLOCK_RGB = {
+    'minecraft:end_stone':[219,222,159], 'minecraft:end_stone_bricks':[203,206,143],
+    'minecraft:purpur_block':[169,126,169], 'minecraft:purpur_pillar':[157,116,158],
+    'minecraft:purpur_stairs':[160,120,160], 'minecraft:bedrock':[40,36,52],
+    'minecraft:obsidian':[27,23,40], 'minecraft:crying_obsidian':[58,26,92],
+    'minecraft:iron_bars':[168,168,172], 'minecraft:chorus_plant':[124,88,124],
+    'minecraft:chorus_flower':[146,106,146], 'minecraft:end_rod':[228,224,216],
+    'minecraft:dragon_egg':[20,16,32], 'minecraft:end_gateway':[44,30,66],
+    'minecraft:end_portal_frame':[86,110,96], 'minecraft:air':[14,13,24],
+    'minecraft:cave_air':[14,13,24], 'minecraft:void_air':[14,13,24],
+    'minecraft:water':[58,70,140], 'minecraft:lava':[214,110,32],
+    'minecraft:stone':[128,128,128], 'minecraft:grass_block':[106,150,74],
+    'minecraft:dirt':[134,96,67], 'minecraft:sand':[219,207,163],
+    'minecraft:gravel':[131,127,126], 'minecraft:netherrack':[110,54,52],
+    'minecraft:crimson_nylium':[124,44,50], 'minecraft:soul_sand':[84,66,54],
+    'minecraft:blackstone':[42,36,42], 'minecraft:polished_blackstone_bricks':[48,42,48],
+    'minecraft:quartz_block':[236,232,224], 'minecraft:glass':[190,214,222],
+    'minecraft:oak_planks':[162,130,78], 'minecraft:cobblestone':[122,122,122]
+  };
+  function blockRGB(name) {
+    var c = BLOCK_RGB[name];
+    if (c) return c;
+    var h = hash2(name.length * 97 + 13, (name.charCodeAt(0) || 65) * 31 +
+                  (name.charCodeAt(name.length - 1) || 0));
+    return [64 + (h * 96 | 0), 58 + (h * 84 | 0), 84 + (h * 92 | 0)];
+  }
+  function emptyTile() {
+    if (!EMPTY_TILE) {
+      EMPTY_TILE = document.createElement('canvas');
+      EMPTY_TILE.width = EMPTY_TILE.height = CHUNK;
+    }
+    return EMPTY_TILE;
+  }
+  /* 真实区块贴图：按落盘地表方块着色，用高度做明暗（基准 y = 62，与末地海平面一致） */
+  function liveTile(cx, cz, c) {
+    var key = cx + ',' + cz;
+    if (liveTiles.has(key)) return liveTiles.get(key);
+    var cc = document.createElement('canvas'); cc.width = cc.height = CHUNK;
+    var g = cc.getContext('2d');
+    for (var i = 0; i < 256; i++) {
+      var pi = c.idx[i];
+      if (pi === 65535 || pi === undefined) continue;      // 该列无地表 → 留虚空
+      var base = blockRGB(c.pal[pi] || '');
+      var f = Math.max(-0.34, Math.min(0.34, ((c.ys[i] || 62) - 62) * 0.011));
+      g.fillStyle = rgb([base[0] * (1 + f) | 0, base[1] * (1 + f) | 0, base[2] * (1 + f) | 0]);
+      g.fillRect(i % CHUNK, (i / CHUNK) | 0, 1, 1);        // x = i % 16（已用真实末地主岛验证）
+    }
+    liveTiles.set(key, cc);
+    if (liveTiles.size > 3000) liveTiles.clear();
+    return cc;
+  }
+  /* base64 → Uint16Array / Int16Array（后端把 512 字节表压成 base64 传过来） */
+  function b64u16(s) {
+    var bin = atob(s), n = bin.length >> 1, a = new Uint16Array(n);
+    for (var i = 0; i < n; i++) a[i] = bin.charCodeAt(2 * i) | (bin.charCodeAt(2 * i + 1) << 8);
+    return a;
+  }
+  function b64i16(s) {
+    var bin = atob(s), n = bin.length >> 1, a = new Int16Array(n);
+    for (var i = 0; i < n; i++) a[i] = bin.charCodeAt(2 * i) | (bin.charCodeAt(2 * i + 1) << 8);
+    return a;
+  }
+  // 预览模式下坐标源本就是内置演示，别让顶栏挂着"CoordBridge"误导（运行模式由后端置回）
+  if (!BOOT_LIVE) S.source = 'demo';
+
+  /* ───────────────────────── 3. 工具 ───────────────────────── */
+  var $ = function (id) { return document.getElementById(id); };
+  function el(tag, cls, txt) {
+    var n = document.createElement(tag);
+    if (cls) n.className = cls;
+    if (txt != null) n.textContent = txt;
+    return n;
+  }
+  function hhmmss(ms) {
+    var s = Math.max(0, Math.floor(ms / 1000));
+    return [(s / 3600) | 0, ((s / 60) | 0) % 60, s % 60].map(function (v) {
+      return (v < 10 ? '0' : '') + v;
+    }).join(':');
+  }
+  function clock(d) {
+    return [d.getHours(), d.getMinutes(), d.getSeconds()].map(function (v) {
+      return (v < 10 ? '0' : '') + v;
+    }).join(':');
+  }
+  function clamp(v, a, b) { return v < a ? a : (v > b ? b : v); }
+  /* 与 view.py 同一个 128 格网格 + 同一套玩家配色 */
+  function rgb(c, a) { return 'rgba(' + c[0] + ',' + c[1] + ',' + c[2] + ',' + (a == null ? 1 : a) + ')'; }
+
+  /* 8×8 像素画图标：把字符网格画成 SVG，天然带「方块」味 */
+  function pixArt(rows, pal, scale, cls) {
+    scale = scale || 2;
+    var n = rows[0].length, h = rows.length, out = [];
+    for (var y = 0; y < h; y++) {
+      for (var x = 0; x < n; x++) {
+        var c = rows[y][x];
+        if (c === '.' || !pal[c]) continue;
+        out.push('<rect x="' + (x * scale) + '" y="' + (y * scale) + '" width="' + scale +
+                 '" height="' + scale + '" fill="' + pal[c] + '"/>');
+      }
+    }
+    return '<svg class="pix ' + (cls || '') + '" width="' + (n * scale) + '" height="' + (h * scale) +
+           '" viewBox="0 0 ' + (n * scale) + ' ' + (h * scale) + '" shape-rendering="crispEdges" ' +
+           'aria-hidden="true">' + out.join('') + '</svg>';
+  }
+  var ART = {
+    eye: [['..oooo..','.oTTTTo.','oTteeTTo','oTeppTeo','oTeppTeo','oTteeTTo','.oTTTTo.','..oooo..'],
+          { o:'#171226', T:'#7de0d0', t:'#2f8f83', e:'#d8fff9', p:'#120d1c' }],
+    map: [['oooooooo','oBBBBBBo','oBggggBo','oBBBBBBo','oBggBBBo','oBBBBBBo','oBgggBBo','oooooooo'],
+          { o:'#171226', B:'#dbde9f', g:'#8f9a52' }],
+    bell:[['...oo...','..oggo..','.oggggo.','.ogggggo'.slice(0,8),'oggggggo','oggggggo','ooggggoo','..oooo..'],
+          { o:'#171226', g:'#f5c542' }],
+    radar:[['..oooo..','.o1111o.','o1....1o','o1.oo.1o','o1.oo.1o','o1....1o','.o1111o.','..oooo..'],
+          { o:'#171226', 1:'#5ad2c8' }],
+    lever:[['..oooo..','..oggo..'.slice(0,8),'..oggo..'.slice(0,8),'..oggo..'.slice(0,8),'oogggoo'.slice(0,8),'oooooooo','o11111o','o11111o'],
+          { o:'#171226', g:'#c9a5da', 1:'#8f66a6' }],
+    pin:  [['..oooo..','.o11o...','o1111o..','o1111o..','.o11o...','..oo....','..oo....','..oo....'],
+          { o:'#171226', 1:'#e04a3c' }],
+    scan: [['........','.o1..1o.','..o11o..','o1.oo.1o','o1.oo.1o','..o11o..','.o1..1o.','........'],
+          { o:'#171226', 1:'#a8efc4' }],
+    ok:   [['........','......oo','.....o2o','o...o22o','oo.o22o.','.o222o..','..o2o...','........'],
+          { o:'#171226', 2:'#4ade80' }]
+  };
+  function setIcon(slotId, key) {
+    var slot = $(slotId);
+    if (slot && ART[key]) slot.innerHTML = pixArt(ART[key][0], ART[key][1], 3, '');
+  }
+
+  /* ── 音效：按 alerts.py synth_drop 的物理模型现场合成（频率上滑 + 指数衰减 + 连响） ── */
+  var actx = null;
+  function audio() {
+    if (actx) return actx;
+    var AC = window.AudioContext || window.webkitAudioContext;
+    if (!AC) return null;
+    try { actx = new AC(); } catch (e) { actx = null; }
+    return actx;
+  }
+  function playTone(name) {
+    var t = TONES[name] || TONES.drop_mid, ctx = audio();
+    if (!ctx) { toast('✖', '浏览器不支持音频', 'WebAudio 不可用，改用「滴水」拟声'); return; }
+    if (ctx.state === 'suspended') ctx.resume();
+    var rate = ctx.sampleRate, rep = S.rep, gap = 0.17, now = ctx.currentTime + 0.02;
+    for (var r = 0; r < rep; r++) {
+      var t0 = now + r * (t.ms / 1000 + gap);
+      // 频率曲线：f = f0 + (f1-f0) * u^1.5（与合成脚本同一条曲线）
+      var steps = 24, curve = new Float32Array(steps);
+      for (var i = 0; i < steps; i++) {
+        var u = i / (steps - 1);
+        curve[i] = t.f0 + (t.f1 - t.f0) * Math.pow(u, 1.5);
+      }
+      var osc = ctx.createOscillator(), osc2 = ctx.createOscillator(), g = ctx.createGain();
+      var amp = (r === 0 ? 1 : Math.pow(0.92, r)) * clamp(S.vol, 0.05, 2) * 0.22;
+      osc.type = 'sine'; osc2.type = 'sine';
+      try { osc.frequency.setValueCurveAtTime(curve, t0, t.ms / 1000); }
+      catch (e) { osc.frequency.setValueAtTime(t.f0, t0); osc.frequency.linearRampToValueAtTime(t.f1, t0 + t.ms / 1000); }
+      osc2.frequency.setValueAtTime(t.f0 * 2, t0);
+      osc2.frequency.linearRampToValueAtTime(t.f1 * 2, t0 + t.ms / 1000);
+      g.gain.setValueAtTime(0.0001, t0);
+      g.gain.linearRampToValueAtTime(amp, t0 + 0.004);
+      g.gain.exponentialRampToValueAtTime(0.0008, t0 + t.ms / 1000);
+      var g2 = ctx.createGain(); g2.gain.value = 0.15;   // 二次谐波，听感更「水」
+      osc.connect(g); osc2.connect(g2); g2.connect(g); g.connect(ctx.destination);
+      osc.start(t0); osc2.start(t0); osc.stop(t0 + t.ms / 1000 + 0.02); osc2.stop(t0 + t.ms / 1000 + 0.02);
+    }
+  }
+
+  /* ── Toast（成就弹窗式） ── */
+  var toasts = $('toasts');
+  function toast(icon, title, desc, color) {
+    var n = el('div', 'toast');
+    var i = el('div', 'ti'); i.textContent = icon;
+    if (color) { i.style.color = color; i.style.textShadow = '0 0 10px ' + color; }
+    var box = el('div');
+    box.appendChild(el('div', 'tt', title));
+    if (desc) box.appendChild(el('div', 'td', desc));
+    n.appendChild(i); n.appendChild(box);
+    toasts.appendChild(n);
+    setTimeout(function () {
+      n.classList.add('out');
+      setTimeout(function () { if (n.parentNode) n.parentNode.removeChild(n); }, 300);
+    }, 2600);
+    while (toasts.children.length > 4) toasts.removeChild(toasts.firstChild);
+  }
+  $('ic-modal').innerHTML = pixArt(ART.eye[0], ART.eye[1], 3);
+
+  /* ── 模态 ── */
+  function modal(title, bodyHtml, actions, artKey) {
+    $('mTitle').textContent = title;
+    $('mBody').innerHTML = bodyHtml;
+    setIcon('ic-modal', artKey || 'eye');
+    var acts = $('mActs'); acts.innerHTML = '';
+    actions.forEach(function (a) {
+      var b = el('button', 'btn ' + (a.kind || 'ghost'), a.cap);
+      b.type = 'button';
+      b.addEventListener('click', function () { closeModal(); if (a.fn) a.fn(); });
+      acts.appendChild(b);
+    });
+    $('modal').hidden = false;
+    var first = acts.querySelector('.btn');
+    if (first) first.focus();
+  }
+  function closeModal() { $('modal').hidden = true; }
+
+  /* ───────────────────────── 4. 地图渲染 ───────────────────────── */
+  var cv = $('map'), cx2d = cv.getContext('2d');
+  var tileCache = new Map();     // 区块级贴图缓存（对应真实程序里的 TileStore）
+
+  function hash2(x, y) {
+    var h = (x | 0) * 374761393 + (y | 0) * 668265263;
+    h = (h ^ (h >> 13)) * 1274126177;
+    return ((h ^ (h >> 16)) >>> 0) / 4294967296;
+  }
+  /* 生成 16×16 的区块贴图：末地石底 + 紫珀斑 + 黑曜石柱 + 颗粒噪点 */
+  function tile(cx, cz) {
+    var real = liveTerrain.get(cx + ',' + cz);
+    if (real) return liveTile(cx, cz, real);      // 运行模式：真实落盘地形
+    if (liveInfo.on) return emptyTile();          // 运行模式：盘上没有这块 → 虚空
+    var key = cx + ',' + cz;
+    if (tileCache.has(key)) return tileCache.get(key);
+    var c = document.createElement('canvas'); c.width = c.height = CHUNK;
+    var g = c.getContext('2d');
+    var base = hash2(cx * 7 + 3, cz * 13 + 5);
+    var earth = base > 0.78 ? [169, 126, 169] : [219, 222, 159];      // 紫珀 / 末地石
+    g.fillStyle = rgb(earth); g.fillRect(0, 0, CHUNK, CHUNK);
+    for (var y = 0; y < CHUNK; y++) {
+      for (var x = 0; x < CHUNK; x++) {
+        var v = hash2(cx * CHUNK + x, cz * CHUNK + y);
+        if (v > 0.955) g.fillStyle = 'rgba(0,0,0,.26)';
+        else if (v > 0.90) g.fillStyle = 'rgba(255,255,255,.11)';
+        else if (v > 0.865) g.fillStyle = base > 0.78 ? 'rgba(120,70,120,.5)' : 'rgba(150,155,90,.45)';
+        else continue;
+        g.fillRect(x, y, 1, 1);
+      }
+    }
+    // 黑曜石柱 / 空岛边缘
+    if (base > 0.62 && base < 0.70) {
+      g.fillStyle = '#1b1728';
+      for (var k = 0; k < 4; k++) g.fillRect(3 + k, 4 + (hash2(cx + k, cz) * 6 | 0), 1, 8);
+    }
+    // 虚空缺口（末地外岛的岛间空隙）
+    if (base < 0.022) { g.clearRect(0, 0, CHUNK, CHUNK); }
+    tileCache.set(key, c);
+    if (tileCache.size > 900) tileCache.clear();
+    return c;
+  }
+
+  function drawMap() {
+    var t0 = performance.now();
+    var W = cv.width, H = cv.height;
+    var zoom = S.zoom, px = S.px, pz = S.pz;
+    // 视口左上角世界坐标（对齐 zoom 整数倍，避免重采样抖动 —— 与 view.py 同一做法）
+    var x0 = Math.round(px - (W / 2) * zoom), z0 = Math.round(pz - (H / 2) * zoom);
+    x0 -= ((x0 % zoom) + zoom) % zoom; z0 -= ((z0 % zoom) + zoom) % zoom;
+
+    cx2d.imageSmoothingEnabled = false;
+    cx2d.fillStyle = '#0e0d18'; cx2d.fillRect(0, 0, W, H);
+
+    var c0x = Math.floor(x0 / CHUNK), c1x = Math.floor((x0 + W * zoom - 1) / CHUNK);
+    var c0z = Math.floor(z0 / CHUNK), c1z = Math.floor((z0 + H * zoom - 1) / CHUNK);
+    var drawn = 0;
+
+    for (var cxx = c0x; cxx <= c1x; cxx++) {
+      for (var czz = c0z; czz <= c1z; czz++) {
+        if (!isExplored(cxx, czz)) continue;
+        var sx = Math.floor((cxx * CHUNK - x0) / zoom), sz = Math.floor((czz * CHUNK - z0) / zoom);
+        var sw = Math.max(1, Math.round(CHUNK / zoom)), sh = sw;
+        cx2d.drawImage(tile(cxx, czz), sx, sz, sw, sh);
+        drawn++;
+      }
+    }
+    S.miss = liveInfo.on
+      ? Math.max(0, (c1x - c0x + 1) * (c1z - c0z + 1) - drawn)     // 运行模式：视口内没落盘的数量
+      : (adapter ? S.miss : Math.max(0, 260 - drawn));
+
+    // 128 格网格（对应 view.py 的 GRID_COLOR 白 11%）
+    if (S.grid) {
+      var g0 = GRID_STEP / zoom, stepPx = GRID_STEP;
+      var gx = ((stepPx - (x0 % stepPx)) % stepPx) / zoom;
+      cx2d.fillStyle = 'rgba(255,255,255,.11)';
+      for (var x = gx; x < W; x += g0) cx2d.fillRect(Math.floor(x), 0, 1, H);
+      var gz = ((stepPx - (z0 % stepPx)) % stepPx) / zoom;
+      for (var z = gz; z < H; z += g0) cx2d.fillRect(0, Math.floor(z), W, 1);
+    }
+
+    // 遗迹标记（菱形 + 图标，与 view.py _marker 一致）
+    S.found.forEach(function (f) {
+      var r = byId[f.type] || byId['巫师的圣修所'];
+      var sx = (f.x - x0) / zoom, sz = (f.z - z0) / zoom;
+      if (sx < -14 || sx > W + 14 || sz < -14 || sz > H + 14) return;
+      cx2d.save();
+      cx2d.beginPath();
+      cx2d.moveTo(sx, sz - 7); cx2d.lineTo(sx + 7, sz); cx2d.lineTo(sx, sz + 7); cx2d.lineTo(sx - 7, sz);
+      cx2d.closePath();
+      cx2d.fillStyle = rgb(r.color); cx2d.fill();
+      cx2d.lineWidth = 1; cx2d.strokeStyle = 'rgba(0,0,0,.86)'; cx2d.stroke();
+      if (f.last) { cx2d.shadowColor = r.css; cx2d.shadowBlur = 12; cx2d.fill(); cx2d.shadowBlur = 0; }
+      cx2d.restore();
+      if (zoom <= 2) {
+        cx2d.font = '10px "Cascadia Mono",Consolas,monospace';
+        cx2d.textBaseline = 'middle';
+        cx2d.lineWidth = 3; cx2d.strokeStyle = 'rgba(0,0,0,.9)';
+        cx2d.strokeText(r.id, sx + 10, sz);
+        cx2d.fillStyle = '#fff'; cx2d.fillText(r.id, sx + 10, sz);
+      }
+    });
+
+    // 玩家：红点 + 白描边 + 十字准线（view.py 同款），朝向用小三角
+    var pcx = Math.round((S.px - x0) / zoom), pcz = Math.round((S.pz - z0) / zoom);
+    cx2d.save();
+    cx2d.fillStyle = '#ff4646'; cx2d.strokeStyle = '#fff'; cx2d.lineWidth = 1;
+    cx2d.beginPath(); cx2d.arc(pcx, pcz, 4, 0, Math.PI * 2); cx2d.fill(); cx2d.stroke();
+    cx2d.strokeStyle = '#ff4646';
+    [[-14, -5, 0, 0], [5, 14, 0, 0], [0, 0, -14, -5], [0, 0, 5, 14]].forEach(function (d) {
+      cx2d.beginPath(); cx2d.moveTo(pcx + d[0], pcz + d[2]); cx2d.lineTo(pcx + d[1], pcz + d[3]); cx2d.stroke();
+    });
+    cx2d.fillStyle = 'rgba(255,255,255,.95)';
+    cx2d.beginPath();
+    cx2d.moveTo(pcx + Math.sin(S.heading) * 15, pcz - Math.cos(S.heading) * 15);
+    cx2d.lineTo(pcx + Math.sin(S.heading + 2.5) * 7, pcz - Math.cos(S.heading + 2.5) * 7);
+    cx2d.lineTo(pcx + Math.sin(S.heading - 2.5) * 7, pcz - Math.cos(S.heading - 2.5) * 7);
+    cx2d.closePath(); cx2d.fill();
+    cx2d.restore();
+
+    S.renderMs = Math.round(performance.now() - t0) + (zoom > 1 ? 6 : 22);
+  }
+
+  function isExplored(cxx, czz) {
+    if (liveInfo.on) return liveTerrain.has(cxx + ',' + czz);   // 只认真实落盘区块
+    return S.scannedChunks.has(cxx + ',' + czz);
+  }
+  /* 以玩家为中心揭开区块（模拟「玩家真正加载过的区块」） */
+  function reveal(cx0, cz0, rChunks) {
+    var c = Math.floor(cx0 / CHUNK), d = Math.floor(cz0 / CHUNK);
+    var before = S.scannedChunks.size;
+    for (var a = -rChunks; a <= rChunks; a++) {
+      for (var b = -rChunks; b <= rChunks; b++) {
+        if (a * a + b * b > rChunks * rChunks + rChunks * 0.6) continue;
+        S.scannedChunks.add((c + a) + ',' + (d + b));
+      }
+    }
+    return S.scannedChunks.size - before;
+  }
+
+  /* ───────────────────────── 5. 演示数据源（无后端时的自巡游） ───────────────────────── */
+  var DEMO_WAYPOINTS = [                    // 参照真实已发现遗迹的坐标走向
+    [4625, -46008], [8086, -38744], [4676, -38965], [9225, -38843],
+    [12658, -38952], [19428, -39010], [20464, -39084], [4622, -43857]
+  ];
+  var wpIdx = 0;
+  /* ⚠️ 这里曾经有个「原地抖动」的坑（2026-10-16 实测修掉）：
+     旧写法是每帧重选「最近的、且距离 > 40 格的航点」。玩家一旦飞进 40 格阈值内，
+     该航点立刻被排除 → 换成反向的下一个航点；下一帧又飞出 40 格 → 被换回来。
+     于是位置在两点之间无限来回弹：实测 z 在 -45966.6 与 -45976.1 之间精确交替 12 次，
+     地图原地高频抖动、跑图永远零进展（看着就是「卡在末地不动」）。
+     现在改成「一经锁定不再重选」，只用 CAPTURE 半径判定「到点了」，换下一个航点。 */
+  function stepDemo(dt) {
+    var CAPTURE = 24;                                  // 判定「到点」的半径（格）
+    var tgt = DEMO_WAYPOINTS[wpIdx % DEMO_WAYPOINTS.length];
+    var dx = tgt[0] - S.px, dz = tgt[1] - S.pz;
+    var d = Math.hypot(dx, dz) || 1;
+    if (d <= CAPTURE) {                                // 到点 → 推进到下一个航点
+      wpIdx = (wpIdx + 1) % DEMO_WAYPOINTS.length;
+      tgt = DEMO_WAYPOINTS[wpIdx];
+      dx = tgt[0] - S.px; dz = tgt[1] - S.pz;
+      d = Math.hypot(dx, dz) || 1;
+    }
+    var v = 190;                                       // 格 / 秒（挂机飞行速度观感）
+    var step = Math.min(v * dt, d);
+    S.px += dx / d * step; S.pz += dz / d * step;
+    S.heading = Math.atan2(dx, dz);
+    /* 只揭开「玩家脚下」这一小圈（2 区块半径 ≈ 256 格），轨迹才呈现为一条路。
+       ⚠️ 旧版半径给到 5（1280 格宽）且每帧还有 50% 概率再随机补一块，覆盖面积
+       远大于视口 —— 满屏同一片末地石噪点，滚动时看不出在移动（被误读成「卡在末地」）；
+       随机补块还每秒新增约 750 个区块键，跑久了拖慢绘制。 */
+    reveal(S.px, S.pz, 2);
+  }
+
+  /* ───────────────────────── 6. 渲染 UI ───────────────────────── */
+  function renderPills() {
+    $('srcName').textContent = SOURCE_CAP[S.source];
+    var d = $('pill-src').querySelector('.dot');
+    d.className = 'dot ' + (S.running ? (SOURCE_DOT[S.source] || 'on') : 'off');
+    $('modeName').textContent = S.mode;
+    var m = $('pill-mode').querySelector('.dot');
+    m.className = 'dot ' + (S.mode === 'off' ? 'bad' : (S.mode === 'auto' ? 'warn' : 'on'));
+    // 顶栏运行态：只改文本与 class，不重建节点（否则每秒钟会把脉冲动画重置掉）
+    var r = $('pill-run').querySelector('.dot');
+    r.className = 'dot ' + (S.running ? 'on pulse' : 'off');
+    $('runWord').textContent = S.running ? '运行中 · ' : '已暂停 · ';
+    $('uptime').textContent = hhmmss(Date.now() - S.startTs);
+    // 预览 / 运行模式：单独一个徽标（"运行中"说的是主循环，模式说的是数据从哪来，别混）
+    var lp = $('pill-live');
+    lp.className = 'pill' + (liveInfo.on ? ' good' : '');
+    lp.querySelector('.dot').className = 'dot ' +
+      (liveInfo.on ? (liveInfo.inGame ? 'on pulse' : 'warn') : 'off');
+    if (!liveInfo.on) {
+      $('liveName').textContent = '预览 · 演示数据';
+    } else if (!liveInfo.inGame) {
+      $('liveName').textContent = '运行模式 · 未在游戏中';
+    } else {
+      var ag = liveInfo.hb ? (Date.now() - liveInfo.hb) / 1000 : 99;
+      $('liveName').textContent = ag > 4
+        ? '运行模式 · 坐标 ' + ag.toFixed(0) + 's 未更新'
+        : '运行模式 · 实时';
+    }
+    // 独立地图窗口顶部那条上的状态点（拖拽条右侧）
+    var dh = $('dragHb');
+    if (dh) {
+      var alive = liveInfo.on && liveInfo.inGame && liveInfo.hb &&
+                  (Date.now() - liveInfo.hb) < 4000;
+      dh.className = 'hb' + (alive ? '' : ' off');
+      dh.textContent = alive ? '● 实时' : (liveInfo.on ? '○ 等待落盘' : '○ 演示数据');
+    }
+  }
+
+  function renderStatus() {
+    $('cX').textContent = S.px.toFixed(1);
+    $('cY').textContent = S.py.toFixed(0);
+    $('cZ').textContent = S.pz.toFixed(1);
+    $('sDim').textContent = liveInfo.on ? (DIM_CAP[liveInfo.dim] || 'DIM —') : 'DIM1 末地';
+    $('sMap').textContent = liveInfo.on ? 'CoordBridge 落盘'
+      : (S.miss === 0 ? 'mem 内存直读' : 'mem 直读 + 补瓦片');
+    $('sSpan').textContent = (cv.width * S.zoom) + ' 格';
+    $('sMs').textContent = S.renderMs + ' ms';
+    $('sMiss').textContent = S.miss;
+    $('sLag').textContent = S.memLag.toFixed(1) + ' s';
+    $('sChunks').textContent = S.scanned.toLocaleString();
+    $('sFound').textContent = S.found.length + ' 处';
+    $('mapSub').textContent = liveInfo.on
+      ? ((DIM_CAP[liveInfo.dim] || 'DIM —').split(' ')[0] + ' / ' +
+         (liveInfo.world ? String(liveInfo.world).replace(/^minecraft_/, '') : '等待落盘'))
+      : 'DIM1 / ' + (S.layer === 'cave' ? 'cm$1' : 'mw$default');
+    $('mapBadge').textContent = cv.width + '×' + cv.height + ' · 1px=' + S.zoom + '格';
+    // 演示巡游：当前锁定的航点与剩余距离（运行模式下换成后端的实时读数）
+    if (liveInfo.on) {
+      $('mapNav').hidden = !liveInfo.nav;
+      $('mapNav').textContent = liveInfo.nav || '';
+    } else if (adapter) {
+      $('mapNav').hidden = true;
+    } else {
+      $('mapNav').hidden = false;
+      var nt = DEMO_WAYPOINTS[wpIdx % DEMO_WAYPOINTS.length];
+      $('mapNav').textContent = '→ 航点 ' + ((wpIdx % DEMO_WAYPOINTS.length) + 1) + '/' +
+        DEMO_WAYPOINTS.length + ' · 剩 ' + Math.round(Math.hypot(nt[0] - S.px, nt[1] - S.pz)).toLocaleString() + ' 格';
+    }
+    $('ctlState').textContent = S.running ? '运行中' : '已暂停';
+    $('beatVal').textContent = S.running ? '0.6 s / 轮' : '已停';
+    $('pollCount').textContent = S.polls;
+
+    // 图层按钮态
+    document.querySelectorAll('[data-layer]').forEach(function (b) {
+      b.setAttribute('aria-pressed', String(b.getAttribute('data-layer') === S.layer));
+    });
+    document.querySelectorAll('[data-zoom]').forEach(function (b) {
+      b.setAttribute('aria-pressed', String(Number(b.getAttribute('data-zoom')) === S.zoom));
+    });
+    // HUD 叠加
+    var hud = $('mapHud');
+    hud.style.display = S.hudOn ? '' : 'none';
+    if (S.hudOn) {
+      var lines = [];
+      lines.push('<div class="l1">' + (liveInfo.on
+        ? (DIM_CAP[liveInfo.dim] || 'DIM —').split(' ')[0] + ' / mw$default'
+        : 'DIM1 / ' + (S.layer === 'cave' ? 'cm$1' : 'mw$default')) + '</div>');
+      lines.push('<div class="dim">X ' + S.px.toFixed(1) + '  Y ' + S.py.toFixed(1) + '  Z ' + S.pz.toFixed(1) + '</div>');
+      lines.push('<div class="dim">视野' + (cv.width * S.zoom) + '格  ' + S.source +
+                 '  miss' + S.miss + '  ' + S.renderMs + 'ms</div>');
+      lines.push('<div class="dim">内存直读 延迟' + S.memLag.toFixed(1) + 's  建图' + S.memBuilds + '</div>');
+      if (S.lastHit) {
+        var r = byId[S.lastHit.type];
+        lines.push('<div class="hit">' + r.icon + ' 发现 ' + r.id + ' (' + Math.round(S.lastHit.x) + ',' +
+                   Math.round(S.lastHit.z) + ') 纯度' + Math.round(S.lastHit.pure * 100) + '%</div>');
+      } else {
+        lines.push('<div class="dim">未发现新遗迹 · 继续跑图</div>');
+      }
+      lines.push('<div class="dim">已记录遗迹 ' + S.found.length + ' 处  方式 ' + S.mode + '</div>');
+      hud.innerHTML = lines.join('');
+    }
+  }
+
+  function renderMode() {
+    var seg = $('segMode');
+    seg.innerHTML = '';
+    MODES.forEach(function (m) {
+      var b = el('button', 'btn sm', m.full);
+      b.type = 'button';
+      b.title = m.desc;
+      b.setAttribute('aria-pressed', String(S.mode === m.id));
+      b.addEventListener('click', function () { setMode(m.id); });
+      seg.appendChild(b);
+    });
+    var cur = MODES.filter(function (m) { return m.id === S.mode; })[0] || MODES[0];
+    $('modeNote').innerHTML = '<b>当前：</b>' + cur.desc;
+    $('chSound').checked = !!cur.ch.sound;
+    $('chShake').checked = !!cur.ch.shake;
+    $('chFlash').checked = !!cur.ch.flash;
+    var mark = (adapter && typeof adapter.isMarkOn === 'function') ? adapter.isMarkOn() : true;
+    $('chMark').checked = S.mode === 'off' ? false : mark;
+    $('chSound').disabled = $('chShake').disabled = $('chFlash').disabled = $('chMark').disabled = true;
+  }
+
+  function renderTypes() {
+    var box = $('types'), pend = $('pending');
+    box.innerHTML = ''; pend.innerHTML = '';
+    RUINS.filter(function (r) { return r.ready; }).forEach(function (r) {
+      var on = !!S.enabled[r.id];
+      var card = el('div', 'type');
+      card.setAttribute('data-off', on ? '0' : '1');
+      var top = el('div', 'top');
+      var ico = el('span', 'alert');
+      ico.style.cssText = 'width:27px;height:27px;display:grid;place-items:center;flex:none;' +
+        'border:2px solid #07060b;border-radius:2px;background:#0e0b16;font-size:14px;color:' + r.css;
+      ico.textContent = r.icon;
+      var tt = el('div', 'tt');
+      tt.appendChild(el('div', 'nm', r.id));
+      tt.appendChild(el('div', 'tp', r.rar + ' · ' + r.tone));
+      top.appendChild(ico); top.appendChild(tt);
+      var sw = el('label', 'sw');
+      sw.innerHTML = '<input type="checkbox"' + (on ? ' checked' : '') +
+                     ' aria-label="提醒 ' + r.id + '"><span class="track"></span>';
+      var inp = sw.querySelector('input');
+      inp.addEventListener('change', function () {
+        S.enabled[r.id] = inp.checked;
+        card.setAttribute('data-off', inp.checked ? '0' : '1');
+        toast(inp.checked ? '✔' : '✖', r.id + (inp.checked ? ' 已开启提醒' : ' 已关闭提醒'), '判据：' + r.judge);
+        pushState();
+      });
+      top.appendChild(sw);
+      card.appendChild(top);
+      var chip = el('div', 'chip');
+      chip.appendChild(el('span', 'chip', r.judge));
+      chip.appendChild(el('span', 'chip', '音 ' + r.sound.replace('drop_', '')));
+      card.appendChild(chip);
+      card.appendChild(el('div', 'tp')).style.cssText = 'margin-top:5px;white-space:normal;font-size:10px';
+      card.lastChild.textContent = r.note;
+      box.appendChild(card);
+    });
+    // 未标定的三类：压成一行 chip，避免占掉半屏版面
+    pend.appendChild(el('span', 'cap', '未标定（不参与判定）'));
+    RUINS.filter(function (r) { return !r.ready; }).forEach(function (r) {
+      var c = el('span', 'chip');
+      c.appendChild(document.createTextNode(r.icon + ' ' + r.id));
+      pend.appendChild(c);
+    });
+  }
+
+  function renderFeed() {
+    var feed = $('feed');
+    $('feedSub').textContent = '最近 ' + S.feed.length + ' 条';
+    if (!S.feed.length) {
+      feed.innerHTML = '<div class="empty"><div class="big">◈</div>还没有发现记录。<br>' +
+        '跑图时每 0.6 s 轮询一次新落盘区块，命中稀有遗迹即出现在这里。</div>';
+      return;
+    }
+    feed.innerHTML = '';
+    S.feed.slice(0, 40).forEach(function (f) {
+      var r = byId[f.type] || byId['巫师的圣修所'];
+      var n = el('div', 'alert');
+      var ico = el('div', 'ico'); ico.textContent = r.icon;
+      ico.style.color = r.css; ico.style.textShadow = '0 0 10px ' + r.css;
+      ico.style.boxShadow = 'inset 1px 1px 0 rgba(255,255,255,.13),inset -1px -1px 0 rgba(0,0,0,.6),0 0 0 1px ' + r.css + '33';
+      var mid = el('div');
+      var nm = el('div', 'name');
+      nm.appendChild(el('span', null, r.id));
+      nm.appendChild(el('span', 'ch', f.chan));
+      var meta = el('div', 'meta');
+      meta.innerHTML = '<em>(' + Math.round(f.x) + ', ' + Math.round(f.z) + ')</em>' +
+        '<span>纯度 <em>' + Math.round(f.pure * 100) + '%</em></span>' +
+        '<span>' + (f.dist != null ? '距 <em>' + Math.round(f.dist) + '</em> 格 ' + f.dir : '—') + '</span>';
+      mid.appendChild(nm); mid.appendChild(meta);
+      var right = el('div', 'right');
+      var bar = el('div', 'purity');
+      var fill = el('i'); fill.style.width = Math.round(f.pure * 100) + '%';
+      if (f.pure < .90) fill.style.background = 'linear-gradient(180deg,#f5d27a,#c99b2f)';
+      bar.appendChild(fill);
+      right.appendChild(bar);
+      right.appendChild(el('div', 'time', f.at));
+      n.appendChild(ico); n.appendChild(mid); n.appendChild(right);
+      feed.appendChild(n);
+    });
+  }
+
+  /* ───────────────────────── 7. 业务动作 ───────────────────────── */
+  function setMode(id) {
+    if (MODES.every(function (m) { return m.id !== id; })) return;
+    S.mode = id;
+    renderMode(); renderStatus(); renderPills();
+    if (adapter && adapter.setMode) { try { adapter.setMode(id); } catch (e) {} }
+    toast('♪', '提醒方式 → ' + id,
+      (MODES.filter(function (m) { return m.id === id; })[0] || {}).desc || '', '#bd93cf');
+    pushState();
+  }
+  function cycleMode() {
+    var i = MODE_CYCLE.indexOf(S.mode);
+    setMode(MODE_CYCLE[(i + 1) % MODE_CYCLE.length]);
+  }
+  function distDir(f) {
+    var dx = f.x - S.px, dz = f.z - S.pz, d = Math.hypot(dx, dz);
+    var names = ['北', '东北', '东', '东南', '南', '西南', '西', '西北'];
+    var a = (Math.atan2(dx, -dz) * 180 / Math.PI + 360) % 360;
+    return { d: d, dir: names[Math.round(a / 45) % 8] + '方向' };
+  }
+  function addHit(type, x, z, pure, silent) {
+    var r = byId[type];
+    var chan = modeChannels().map(function (c) { return c; }).join('+') || '仅打点';
+    var rec = { type:type, x:x, z:z, pure:pure, at:clock(new Date()), chan:chan };
+    var dd = distDir(rec); rec.dist = dd.d; rec.dir = dd.dir;
+    S.feed.unshift(rec); if (S.feed.length > 200) S.feed.pop();
+    S.found.push({ type:type, x:x, z:z, pure:pure, last:true });
+    S.found.forEach(function (f) { if (f !== S.found[S.found.length - 1]) f.last = false; });
+    S.lastHit = rec;
+    if (!silent) {
+      if (S.mode !== 'off') { playTone(r.sound); }
+      if (S.mode === 'both') shakeWindow();
+      if (S.rare) toast(r.icon, '发现 ' + r.id, '(' + Math.round(x) + ', ' + Math.round(z) +
+        ') 纯度 ' + Math.round(pure * 100) + '% · ' + chan, r.css);
+    }
+    renderFeed(); renderStatus();
+  }
+  function modeChannels() {
+    var cur = MODES.filter(function (m) { return m.id === S.mode; })[0] || MODES[0];
+    var out = [];
+    if (cur.ch.sound) out.push('水滴音');
+    if (cur.ch.shake) out.push('窗口抖动');
+    if (cur.ch.flash) out.push('任务栏闪烁');
+    out.push('地图打点');
+    return out;
+  }
+  function doScan() {
+    if (!S.running) { toast('‖', '已暂停', '先恢复扫描再试（空格）'); return; }
+    // 运行模式：判定在后端 —— 界面只发通知 + 视觉回执，绝不伪造读数与命中
+    if (liveInfo.on) {
+      var sc0 = $('scanline');
+      sc0.classList.add('on');
+      setTimeout(function () { sc0.classList.remove('on'); }, 1100);
+      if (adapter && adapter.onScan) { try { adapter.onScan(); } catch (e) {} }
+      toast('⌖', '已通知后端立即扫描', liveInfo.nav || '等后端落盘新瓦片');
+      return;
+    }
+    var sc = $('scanline');
+    sc.classList.add('on');
+    setTimeout(function () { sc.classList.remove('on'); }, 1100);
+    var gained = reveal(S.px, S.pz, 4);
+    S.scanned += Math.max(gained, 14) + (Math.random() * 6 | 0);
+    S.polls++;
+    $('beatNote').textContent = '刚扫描 ' + Math.max(gained, 14) + ' 个区块';
+    var actives = RUINS.filter(function (r) { return r.ready && S.enabled[r.id]; });
+    var hit = Math.random() < clamp(actives.length * 0.30, 0, 0.86);
+    if (hit) {
+      var r = actives[(Math.random() * actives.length) | 0];
+      var ang = Math.random() * Math.PI * 2, rad = 160 + Math.random() * 900;
+      addHit(r.id, Math.round(S.px + Math.cos(ang) * rad), Math.round(S.pz + Math.sin(ang) * rad),
+            0.89 + Math.random() * 0.11);
+    } else {
+      toast('·', '本轮无命中', '已扫 ' + Math.max(gained, 14) + ' 个新区块，无稀有遗迹特征');
+    }
+    renderStatus();
+  }
+  function shakeWindow() {
+    document.body.classList.add('shaking');
+    setTimeout(function () { document.body.classList.remove('shaking'); }, 430);
+  }
+  function flashPreview() {
+    var bar = $('pill-mode');
+    var t = 0;
+    var iv = setInterval(function () {
+      bar.style.background = (t % 2) ? 'linear-gradient(180deg,#3a3149,#241d33)' : 'linear-gradient(180deg,#f5c542,#c79f47)';
+      if (++t > 5) { clearInterval(iv); bar.style.background = ''; }
+    }, 160);
+  }
+  function pauseToggle() {
+    S.running = !S.running;
+    $('beatBar').style.filter = S.running ? '' : 'grayscale(1)';
+    toast(S.running ? '▶' : '‖', S.running ? '已恢复扫描' : '已暂停扫描',
+      S.running ? '继续每 0.6 s 轮询新落盘区块' : '不会再产生新提醒，已发现的记录保留');
+    renderPills(); renderStatus();
+    if (adapter && adapter.onPause) { try { adapter.onPause(S.running); } catch (e) {} }
+  }
+
+  /* 导出日志：生成与 out/ruin_alerts.log 同格式的文本并下载（纯前端，无网络） */
+  function exportLog() {
+    if (!S.feed.length) { toast('✖', '没有可导出的记录', '先扫描几轮再导出'); return; }
+    var lines = S.feed.slice().reverse().map(function (f) {
+      return f.at + '  发现 ' + f.type + ' (' + Math.round(f.x) + ',' + Math.round(f.z) +
+             ') 纯度' + Math.round(f.pure * 100) + '% -> ' + f.chan;
+    });
+    var head = [
+      '# 末地跑图提醒 · 提醒日志（本界面导出）',
+      '# 生成时间 ' + new Date().toLocaleString('zh-CN') + ' · 提醒方式 ' + S.mode +
+        ' · 去重半径 ' + S.ddr + ' 格',
+      '# 判据源 ruins.json v5 · 只读已探索数据，未执行任何游戏操作',
+      ''
+    ];
+    var blob = new Blob([head.concat(lines).join('\n') + '\n'], { type: 'text/plain;charset=utf-8' });
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'ruin_alerts_export_' + Date.now() + '.log';
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    setTimeout(function () { URL.revokeObjectURL(a.href); }, 1500);
+    toast('↧', '日志已导出', lines.length + ' 条记录');
+  }
+
+  /* ───────────────────────── 8. 状态持久化 / 适配器 ───────────────────────── */
+  function pushState() {
+    if (adapter && adapter.applySettings) {
+      try {
+        adapter.applySettings({
+          mode:S.mode, volume:S.vol, repeat:S.rep, dedupe:S.ddr, cooldown:S.cd,
+          only_rare:S.rare, distance_hint:S.dist, layer:S.layer, zoom:S.zoom,
+          enabled:Object.assign({}, S.enabled)
+        });
+      } catch (e) {}
+    }
+    try { localStorage.setItem('paotu-alert-ui', JSON.stringify({
+      mode:S.mode, vol:S.vol, rep:S.rep, ddr:S.ddr, cd:S.cd, rare:S.rare, dist:S.dist,
+      enabled:S.enabled, zoom:S.zoom, grid:S.grid, hudOn:S.hudOn, layer:S.layer }));
+    } catch (e) {}
+  }
+  function pullState() {
+    try {
+      var raw = localStorage.getItem('paotu-alert-ui');
+      if (!raw) return;
+      var o = JSON.parse(raw);
+      ['mode', 'vol', 'rep', 'ddr', 'cd', 'rare', 'dist', 'zoom', 'grid', 'hudOn', 'layer'].forEach(function (k) {
+        if (o[k] !== undefined) S[k] = o[k];
+      });
+      if (o.enabled) Object.keys(o.enabled).forEach(function (k) { if (byId[k]) S.enabled[k] = !!o.enabled[k]; });
+    } catch (e) {}
+  }
+
+  /* ───────────────────────── 9. 事件绑定 ───────────────────────── */
+  /* ─────────────────── 地图分离（开/关独立地图窗口） ───────────────────
+     真正 create_window / destroy 在桌面壳（Python）那边 —— 页面只负责
+     「发请求」和「被通知后改自己的样子」。浏览器里直接开 index.html 时
+     没有适配器，就只给一句提示，不做假动作。
+     ───────────────────────────────────────────────────────────────── */
+  function requestAttach() {
+    if (adapter && adapter.onAttachMap) { adapter.onAttachMap(); return; }
+    if (VIEW === 'map') {
+      toast('⤢', '请在控制台窗口里收回地图', '独立地图窗口由桌面壳管理');
+      return;
+    }
+    setMapDetached(false);                       // 没有壳时至少把界面还原
+  }
+  function toggleMapWindow() {
+    if (VIEW === 'map' || mapDetached) { requestAttach(); return; }
+    if (adapter && adapter.onDetachMap) { adapter.onDetachMap(); return; }
+    toast('⧉', '预览模式不支持分离地图',
+      '独立窗口要由桌面壳（末地跑图提醒控制台.exe）来开');
+  }
+  /* 由桌面壳调用：告知本窗口「地图是否已被分离到别处」 */
+  function setMapDetached(on) {
+    if (VIEW === 'map') return;                  // 地图窗口自己永远画地图
+    mapDetached = !!on;
+    var p = $('panelMap');
+    if (p) p.classList.toggle('is-detached', mapDetached);
+    var b = $('btnDetach');
+    if (b) {
+      b.disabled = mapDetached;
+      b.textContent = mapDetached ? '⧉ 地图已分离' : '⧉ 分离地图';
+    }
+    if (!mapDetached) { if (drawsMap()) { drawMap(); } }
+    renderStatus();
+    return mapDetached;
+  }
+
+  function bind() {
+    // 提醒通道开关（只读回显：真实开关在程序侧，这里改的是「提醒方式」的组合）
+    ['chSound', 'chShake', 'chFlash'].forEach(function (id) {
+      $(id).addEventListener('change', function () {
+        var t = { chSound:'sound', chShake:'shake', chFlash:'flash' }[id];
+        var cur = MODES.filter(function (m) { return m.id === S.mode; })[0];
+        if (!cur) return;
+        var want = { sound:$(('chSound')) .checked, shake:$('chShake').checked, flash:$('chFlash').checked };
+        var match = MODES.filter(function (m) {
+          return m.ch.sound === want.sound && m.ch.shake === want.shake && m.ch.flash === want.flash;
+        })[0];
+        if (match) setMode(match.id);
+        else { renderMode(); toast('!', '通道组合无对应方式', '程序侧只接受 auto / sound / both / flag / off'); }
+      });
+    });
+    $('chMark').addEventListener('change', function () {
+      toast('◈', this.checked ? '已开启地图打点' : '已关闭地图打点',
+        '打点会让发现的遗迹永久显示在跟随地图上');
+    });
+
+    // 音量 / 连响
+    $('vol').value = S.vol; $('rep').value = S.rep;
+    $('vol').addEventListener('input', function () {
+      S.vol = Number(this.value); $('volVal').textContent = S.vol.toFixed(2); volNote(); pushState();
+    });
+    $('rep').addEventListener('input', function () {
+      S.rep = Number(this.value); $('repVal').textContent = S.rep + ' 下';
+      volNote(); playTone('drop_mid'); pushState();
+    });
+    // 去重
+    $('ddr').value = S.ddr; $('cd').value = S.cd;
+    $('ddr').addEventListener('input', function () {
+      S.ddr = Number(this.value); $('ddVal').textContent = S.ddr + ' 格'; pushState();
+    });
+    $('cd').value = S.cd; $('cdVal').textContent = S.cd + ' s';
+    $('cd').addEventListener('input', function () {
+      S.cd = Number(this.value); $('cdVal').textContent = S.cd + ' s'; pushState();
+    });
+    $('tgRare').checked = S.rare;
+    $('tgRare').addEventListener('change', function () { S.rare = this.checked; pushState(); });
+    $('tgDist').checked = S.dist;
+    $('tgDist').addEventListener('change', function () { S.dist = this.checked; renderFeed(); pushState(); });
+
+    // 地图开关
+    $('tgGrid').checked = S.grid;
+    $('tgGrid').addEventListener('change', function () { S.grid = this.checked; pushState(); });
+    $('tgHud').checked = S.hudOn;
+    $('tgHud').addEventListener('change', function () { S.hudOn = this.checked; renderStatus(); pushState(); });
+
+    // 地图分离 / 收回（真正开窗在桌面壳那边，这里只发请求 + 被通知后改界面）
+    $('btnDetach').addEventListener('click', toggleMapWindow);
+    $('btnDetachBack').addEventListener('click', requestAttach);
+    $('btnAttach').addEventListener('click', requestAttach);
+
+    document.querySelectorAll('[data-layer]').forEach(function (b) {
+      b.addEventListener('click', function () {
+        S.layer = b.getAttribute('data-layer'); renderStatus(); pushState();
+        toast('◧', '图层 → ' + LAYER_CAP[S.layer], S.layer === 'cave' ? '洞穴层：不叠加内存直读' : '地表层');
+      });
+    });
+    document.querySelectorAll('[data-zoom]').forEach(function (b) {
+      b.addEventListener('click', function () {
+        S.zoom = Number(b.getAttribute('data-zoom')); renderStatus(); pushState();
+      });
+    });
+
+    // 试听 / 预览
+    document.querySelectorAll('#segTone .btn').forEach(function (b) {
+      b.addEventListener('click', function () {
+        var t = b.getAttribute('data-tone'), r = RUINS.filter(function (x) { return x.sound === t; })[0];
+        playTone(t);
+        toast(r.icon, '试听 ' + r.id + ' 提醒音', r.tone + ' · 连响 ' + S.rep + ' 下（音量 ' + S.vol.toFixed(2) + '）', r.css);
+      });
+    });
+    $('btnShakeTest').addEventListener('click', function () {
+      shakeWindow(); toast('⇄', '窗口抖动预览', '实际为 10 步约 0.4 s、最大 16 px，结束后归位');
+    });
+    $('btnFlashTest').addEventListener('click', function () {
+      flashPreview(); toast('▣', '任务栏闪烁预览', 'FlashWindowEx：不抢焦点，不打断游戏');
+    });
+
+    // 手动控制
+    $('btnScan').addEventListener('click', doScan);
+    $('btnPause').addEventListener('click', pauseToggle);
+    $('btnPin').addEventListener('click', function () {
+      S.found.push({ type:'巫师的圣修所', x:Math.round(S.px), z:Math.round(S.pz), pure:1, manual:true });
+      renderStatus(); playTone('drop_mid');
+      toast('◈', '已打点当前位置', '(' + Math.round(S.px) + ', ' + Math.round(S.pz) + ') 写入 waypoints');
+    });
+    $('btnReset').addEventListener('click', function () {
+      S.zoom = DEFAULTS.zoom; S.layer = DEFAULTS.layer; S.grid = DEFAULTS.grid; S.hudOn = DEFAULTS.hudOn;
+      S.px = 4625; S.pz = -46008; S.heading = 0.6;
+      $('tgGrid').checked = true; $('tgHud').checked = true;
+      renderStatus(); pushState();
+      toast('⟲', '视图已复位', '缩放 ×1 · 图层 auto · 回到末地外岛起点');
+    });
+    $('btnSrc').addEventListener('click', function () {
+      var i = SOURCES.indexOf(S.source);
+      S.source = SOURCES[(i + 1) % SOURCES.length];
+      renderPills(); renderStatus();
+      toast('⇄', '坐标源 → ' + SOURCE_CAP[S.source],
+        S.source === 'bridge' ? 'CoordBridge 模组直读（10Hz，精确，带维度）' :
+        S.source === 'ocr' ? '屏幕 OCR 模板匹配（约 2 帧投票）' : 'Demo 巡游（无游戏时验证用）');
+    });
+    $('btnLayer').addEventListener('click', function () {
+      var i = LAYERS.indexOf(S.layer);
+      S.layer = LAYERS[(i + 1) % LAYERS.length];
+      renderStatus(); pushState();
+      toast('◧', '图层 → ' + LAYER_CAP[S.layer], '');
+    });
+
+    // 清空去重库（危险 + 二次确认）
+    $('btnResetDb').addEventListener('click', function () {
+      modal('清空去重库', '<p>这会清掉本周期所有「已发现」记录，让同一个遗迹可以再次触发提醒。<br>' +
+        '<b style="color:#ffb8ae">冒险世界每周一、周五重置</b>，遗迹坐标会变 —— 只有周期切换时才需要执行。<br>' +
+        '当前记录 <b>' + S.found.length + '</b> 处，日志文件不会被删除。</p>',
+        [{ cap:'取消', kind:'ghost' },
+         { cap:'确认清空', kind:'danger', fn:function () {
+            S.found = []; S.feed = []; S.lastHit = null;
+            renderFeed(); renderStatus();
+            toast('✖', '去重库已清空', '新周期开始，遗迹可再次触发提醒');
+            pushState();
+          } }], 'lever');
+    });
+    $('btnClearFeed').addEventListener('click', function () {
+      if (!S.feed.length) return;
+      S.feed = []; renderFeed(); renderStatus();
+      toast('✖', '列表已清空', '仅清显示，不去重库（不影响 found_ruins.json）');
+    });
+    $('btnExport').addEventListener('click', exportLog);
+    $('btnDefaults').addEventListener('click', function () {
+      S.mode = DEFAULTS.mode; S.vol = DEFAULTS.vol; S.rep = DEFAULTS.rep;
+      S.ddr = DEFAULTS.ddr; S.cd = DEFAULTS.cd; S.rare = DEFAULTS.rare; S.dist = DEFAULTS.dist;
+      S.enabled = Object.assign({}, DEFAULTS.enabled);
+      S.zoom = DEFAULTS.zoom; S.layer = DEFAULTS.layer; S.grid = DEFAULTS.grid; S.hudOn = DEFAULTS.hudOn;
+      $('vol').value = S.vol; $('volVal').textContent = S.vol.toFixed(2);
+      $('rep').value = S.rep; $('repVal').textContent = S.rep + ' 下';
+      $('ddr').value = S.ddr; $('ddVal').textContent = S.ddr + ' 格';
+      $('cd').value = S.cd; $('cdVal').textContent = S.cd + ' s';
+      $('tgRare').checked = S.rare; $('tgDist').checked = S.dist;
+      $('tgGrid').checked = S.grid; $('tgHud').checked = S.hudOn;
+      volNote(); renderMode(); renderTypes(); renderStatus(); pushState();
+      toast('⟲', '已恢复默认设置', 'auto · 音量 1.5 · 连响 3 · 去重 96 格');
+    });
+
+    $('btnHelp').addEventListener('click', showHelp);
+
+    // 键盘
+    document.addEventListener('keydown', function (e) {
+      if (e.target && /input|textarea|select/i.test(e.target.tagName)) return;
+      var k = e.key.toLowerCase();
+      if (k === 's') { e.preventDefault(); doScan(); }
+      else if (k === ' ') { e.preventDefault(); pauseToggle(); }
+      else if (k === 'r') { cycleMode(); }
+      else if (k === 'c') { S.layer = LAYERS[(LAYERS.indexOf(S.layer) + 1) % LAYERS.length]; renderStatus(); pushState(); toast('◧', '图层 → ' + LAYER_CAP[S.layer], ''); }
+      else if (k === 'v') { S.source = SOURCES[(SOURCES.indexOf(S.source) + 1) % SOURCES.length]; renderPills(); renderStatus(); toast('⇄', '坐标源 → ' + SOURCE_CAP[S.source], ''); }
+      else if (k === 'z') { S.zoom = ZOOMS[Math.max(0, ZOOMS.indexOf(S.zoom) - 1)]; renderStatus(); }
+      else if (k === 'x') { S.zoom = ZOOMS[Math.min(ZOOMS.length - 1, ZOOMS.indexOf(S.zoom) + 1)]; renderStatus(); }
+      else if (k === 'g') { S.grid = !S.grid; $('tgGrid').checked = S.grid; pushState(); }
+      else if (k === 'm') { S.hudOn = !S.hudOn; $('tgHud').checked = S.hudOn; renderStatus(); pushState(); }
+      else if (k === 'd') { toggleMapWindow(); }
+      else if (k === 'h') { showHelp(); }
+      else if (k === 'escape') { closeModal(); }
+    });
+    $('modal').addEventListener('click', function (e) { if (e.target === $('modal')) closeModal(); });
+
+    // 画布自适应：按容器重设分辨率
+    //   控制台视图：正方形，跟容器宽度走（上限 720，别把整页顶宽）
+    //   地图窗口：铺满窗口、**不强行正方形**（否则会被拉变形），
+    //             整幅等比缩到 1400 以内，免得 4K 全屏时每帧贴图数顶到几万
+    if (window.ResizeObserver) {
+      var ro = new ResizeObserver(function () {
+        var host = cv.parentElement;
+        var nw, nh;
+        if (VIEW === 'map') {
+          var w = Math.max(1, host.clientWidth), h = Math.max(1, host.clientHeight);
+          var k = Math.min(1, 1400 / Math.max(w, h));
+          nw = Math.max(160, Math.round(w * k));
+          nh = Math.max(160, Math.round(h * k));
+        } else {
+          nw = nh = clamp(Math.round(host.clientWidth), 240, 720);
+        }
+        if (Math.abs(nw - cv.width) >= 4 || Math.abs(nh - cv.height) >= 4) {
+          cv.width = nw; cv.height = nh;
+          if (drawsMap()) drawMap();
+          renderStatus();
+        }
+      });
+      ro.observe(cv.parentElement);
+    } else {
+      window.addEventListener('resize', function () {
+        if (drawsMap()) drawMap();
+        renderStatus();
+      });
+    }
+  }
+
+  function volNote() {
+    var n = $('volNote');
+    $('volSum').textContent = '音量 ' + S.vol.toFixed(2) + ' · 连响 ' + S.rep + ' 下 → ' +
+      (S.vol > 1 ? '软削波推响度' : '线性缩放') + '（展开看依据）';
+    if (S.vol > 1) {
+      n.innerHTML = '<b>音量 ' + S.vol.toFixed(2) + ' &gt; 1：</b>波形峰值先归一化到满刻度，' +
+        '再用 tanh 软削波继续推响度 —— 峰值始终 ≤ 满刻度，不会数字破音。' +
+        '（winsound 没有音量参数，改整机音量会干扰你在看的视频，所以只能靠波形本身。）';
+    } else {
+      n.innerHTML = '<b>音量 ' + S.vol.toFixed(2) + ' ≤ 1：</b>直接线性缩放波形，峰值远低于满刻度，' +
+        '可能被视频声盖住。实测「连响 ' + S.rep + ' 下」比单纯加大音量更容易听见。';
+    }
+  }
+
+  function showHelp() {
+    modal('快捷键与使用方法',
+      '<table class="keys" style="margin-bottom:12px"><tbody>' +
+      '<tr><td><kbd>S</kbd></td><td>立即扫描一轮（等同于等到下一拍轮询）</td></tr>' +
+      '<tr><td><kbd>空格</kbd></td><td>暂停 / 恢复扫描</td></tr>' +
+      '<tr><td><kbd>R</kbd></td><td>循环提醒方式 auto → sound → both → flag → off</td></tr>' +
+      '<tr><td><kbd>C</kbd> <kbd>V</kbd></td><td>切换图层 / 坐标源</td></tr>' +
+      '<tr><td><kbd>Z</kbd> <kbd>X</kbd></td><td>缩小 / 放大（同 Xaero 滚轮操作）</td></tr>' +
+      '<tr><td><kbd>G</kbd> <kbd>M</kbd></td><td>128 格网格 / HUD 叠加 开关</td></tr>' +
+      '<tr><td><kbd>D</kbd></td><td>把地图分离成独立窗口 / 收回（省屏幕空间；需要桌面壳）</td></tr>' +
+      '</tbody></table>' +
+      '<p><b>判据与红线：</b>只读模组已经落盘的区块文件（模组只在玩家真正加载的区块上写文件），' +
+      '所以「文件新出现」天然等价于「这块地形刚进视距」，绝不扫描视距外，也绝不自动操作游戏。</p>',
+      [{ cap:'知道了', kind:'ghost' }], 'map');
+  }
+
+  /* ───────────────────────── 10. 主循环 ───────────────────────── */
+  var lastT = performance.now(), lastPoll = 0, beatPhase = 0;
+  function loop(now) {
+    var dt = Math.min(0.05, (now - lastT) / 1000); lastT = now;
+
+    if (S.running && !adapter && !liveInfo.on) stepDemo(dt);
+    if (drawsMap()) drawMap();       // 地图被分离时控制台这边不再重绘（省 CPU）
+
+    if (S.running) {
+      beatPhase += dt / 0.6;
+      if (beatPhase >= 1) {
+        beatPhase = 0;
+        S.polls++;
+        // 运行模式下这几个读数由后端推真实的，别用随机数盖掉
+        if (!liveInfo.on) {
+          S.scanned += 10 + (Math.random() * 8 | 0);
+          S.memLag = clamp(0.3 + Math.random() * 0.3, 0.2, 1.2);
+          S.memBuilds += Math.random() < 0.4 ? 1 : 0;
+        }
+      }
+      $('beatFill').style.width = (beatPhase * 100).toFixed(1) + '%';
+      $('beatNote').textContent = '下一拍 ' + ((1 - beatPhase) * 0.6).toFixed(1) + ' s';
+    }
+
+    // 自动发现（概率随开启的遗迹类型数变化，模拟「跑图跑着跑着就撞上」）
+    if (S.running && !adapter && !liveInfo.on && Math.random() < dt * 0.085) {
+      var actives = RUINS.filter(function (r) { return r.ready && S.enabled[r.id]; });
+      if (actives.length) {
+        var r = actives[(Math.random() * actives.length) | 0];
+        var ang = Math.random() * Math.PI * 2, rad = 120 + Math.random() * 700;
+        addHit(r.id, Math.round(S.px + Math.cos(ang) * rad), Math.round(S.pz + Math.sin(ang) * rad),
+               0.88 + Math.random() * 0.12);
+      }
+    }
+
+    renderStatus();
+    // 顶栏运行时长约 1 s 刷一次
+    if (!loop.t || now - loop.t > 990) { loop.t = now; renderPills(); }
+    requestAnimationFrame(loop);
+  }
+
+  /* ───────────────────────── 11. 启动 ───────────────────────── */
+  function boot() {
+    setIcon('ic-map', 'map'); setIcon('ic-feed', 'pin');
+    setIcon('ic-set', 'bell'); setIcon('ic-ctl', 'lever');
+    $('logo').innerHTML = pixArt(ART.eye[0], ART.eye[1], 4.6);
+    // 帮助按钮也挂一个像素图标
+    var hb = $('btnHelp');
+    hb.insertAdjacentHTML('afterbegin', pixArt(ART.radar[0], ART.radar[1], 1.6));
+
+    pullState();
+    /* 预览模式才铺「演示走廊」；运行模式（?live=1，由桌面壳打开）只显示真实落盘区块，
+       不预先揭开任何区域 —— 免得把程序生成的地形当成真地形看。 */
+    if (!BOOT_LIVE) {
+      var path = [[S.px, S.pz]].concat(SEED_FOUND.map(function (s) { return [s.x, s.z]; }));
+      for (var i = 1; i < path.length; i++) {
+        var A = path[i - 1], B = path[i];
+        var steps = Math.max(2, Math.ceil(Math.hypot(B[0] - A[0], B[1] - A[1]) / 56));
+        for (var t = 0; t <= steps; t++) {
+          reveal(A[0] + (B[0] - A[0]) * t / steps, A[1] + (B[1] - A[1]) * t / steps, 2);
+        }
+      }
+      S.scanned = S.scannedChunks.size;
+    }
+    /* 发现流开局铺上「历史记录」：这些是 out/found_ruins.json 里真实落盘过的命中
+       （上一次运行留下的），既让界面一打开就有内容，也方便对照本次新发现。 */
+    SEED_FOUND.slice().reverse().forEach(function (s) {
+      S.feed.push({ type:s.type, x:s.x, z:s.z, pure:s.pure, at:s.at,
+                    chan:'历史 · 打点留档', hist:true });
+    });
+    SEED_FOUND.forEach(function (s) { S.found.push({ type:s.type, x:s.x, z:s.z, pure:s.pure }); });
+
+    // 顶栏 / 底栏年份化的周期信息
+    $('epoch').textContent = S.epoch;
+    renderPills(); renderMode(); renderTypes(); renderFeed(); renderStatus(); volNote(); bind();
+
+    /* 直接就用 #view=panel 打开时（预览 / 调试用），把「地图已分离」的样子一并铺上。
+       否则 mapDetached 变量已是 true、DOM 上却没挂 is-detached，两套状态对不上，
+       「收回地图」按钮会因为父容器 display:none 而点不到。 */
+    if (VIEW === 'panel') setMapDetached(true);
+
+    // 重置倒计时（每周一 / 周五 00:00）
+    function tickReset() {
+      var d = new Date(), n = new Date(d), left = 0;
+      for (var i = 0; i < 8; i++) {
+        n.setDate(d.getDate() + i);
+        if (n.getDay() === 1 || n.getDay() === 5) { left = i; break; }
+      }
+      var t = new Date(d); t.setDate(d.getDate() + left); t.setHours(0, 0, 0, 0);
+      var ms = t - d, h = Math.floor(ms / 3600000);
+      $('resetIn').textContent = left === 0 ? '今天 00:00 已重置' :
+        (left + ' 天后 · 约 ' + Math.floor(h / 24) + ' 天 ' + (h % 24) + ' 小时');
+    }
+    tickReset(); setInterval(tickReset, 60000);
+
+    $('volVal').textContent = S.vol.toFixed(2);
+    $('repVal').textContent = S.rep + ' 下';
+    $('ddVal').textContent = S.ddr + ' 格';
+    $('cdVal').textContent = S.cd + ' s';
+    $('ddr').value = S.ddr;
+    if (!S.grid) $('tgGrid').checked = false;
+    if (!S.hudOn) $('tgHud').checked = false;
+
+    requestAnimationFrame(loop);
+    setTimeout(function () {
+      toast('◈', '跑图状态已就绪', '只读已探索区域 · 每 0.6 s 轮询新落盘区块');
+    }, 420);
+  }
+
+  /* ───────────────────────── 12. 对外接口（唯一的全局出口） ─────────────────────────
+     后端（Python 侧）想接管数据时，在页面加载后调用：
+       window.PaoTuAlertUI.setAdapter({
+         onState:      cb,            // 需要推送时自己调 cb({px,pz,py,scanned,found,feed,...})
+         setMode:      function(id){} // 用户在界面上改了提醒方式 → 通知程序
+         applySettings:function(o){}  // 用户在界面上改了设置 → 通知程序
+       });
+     不注入适配器时，界面用自己的演示数据源独立运行。
+     ───────────────────────────────────────────────────────────────────────── */
+  window.PaoTuAlertUI = {
+    version: '1.0.0',
+    setAdapter: function (a) {
+      adapter = a || null;
+      if (adapter && adapter.onState) {
+        try { adapter.onState(this.getState()); } catch (e) {}
+      }
+      return this;
+    },
+    /* ── 运行模式接口（后端接管真实数据时调用；不调用则界面独立跑预览）──────
+       setLive(true)      切到运行模式（地图只画真实落盘区块，源显示 CoordBridge）
+       setTerrain(list)   灌入真实区块地形 [{cx,cz,pal:[],ys:<b64|数组>,idx:<b64|数组>}]
+       applyRuntime(obj)  推实时运行数据 {x,y,z,dim,world,server,inGame,age,nav,memLag,running}
+       seedFound(list)    用落盘的历史命中初始化「已发现」（[{type,x,z,pure}]）
+       这四个都是**加法**：不调时行为与之前完全一致。 */
+    setLive: function (on) {
+      liveInfo.on = !!on;
+      liveInfo.hb = Date.now();
+      if (liveInfo.on) { S.source = 'bridge'; }
+      else { liveTerrain.clear(); liveTiles.clear(); S.source = 'demo'; }
+      renderPills(); renderStatus();
+      return this;
+    },
+    applyRuntime: function (o) {
+      if (!o || typeof o !== 'object') return this;
+      ['dim', 'world', 'server', 'note', 'nav'].forEach(function (k) {
+        if (o[k] !== undefined) liveInfo[k] = o[k];
+      });
+      if (o.inGame !== undefined) liveInfo.inGame = !!o.inGame;
+      if (o.age !== undefined) liveInfo.age = o.age;
+      if (typeof o.x === 'number') S.px = o.x;
+      if (typeof o.y === 'number') S.py = o.y;
+      if (typeof o.z === 'number') S.pz = o.z;
+      if (typeof o.heading === 'number') S.heading = o.heading;
+      if (typeof o.memLag === 'number') S.memLag = o.memLag;
+      if (typeof o.memBuilds === 'number') S.memBuilds = o.memBuilds;
+      if (typeof o.running === 'boolean') S.running = o.running;
+      liveInfo.hb = Date.now();
+      renderStatus(); renderPills();
+      return this;
+    },
+    /* append=1 时**追加**而不是替换 —— 后端分批推大地图用（单次 evaluate_js
+       传太大的字符串会被 WebView2 截断/卡住，所以切成每批几百块）。 */
+    setTerrain: function (list, append) {
+      if (!list || !list.length) return this;
+      if (!append) { liveTerrain.clear(); liveTiles.clear(); }
+      for (var i = 0; i < list.length; i++) {
+        var c = list[i];
+        if (!c || c.cx == null || c.cz == null || !c.idx) continue;
+        liveTerrain.set(c.cx + ',' + c.cz, {
+          pal: c.pal || [],
+          ys: (typeof c.ys === 'string') ? b64i16(c.ys) : c.ys,
+          idx: (typeof c.idx === 'string') ? b64u16(c.idx) : c.idx
+        });
+      }
+      S.scanned = liveTerrain.size;
+      renderStatus();
+      return this;
+    },
+    clearTerrain: function () {
+      liveTerrain.clear(); liveTiles.clear(); S.scanned = 0;
+      renderStatus();
+      return this;
+    },
+    seedFound: function (list) {
+      if (!list || !list.length) return this;
+      var out = [];
+      list.forEach(function (o) {
+        if (byId[o.type]) out.push({ type:o.type, x:o.x, z:o.z, pure:o.pure });
+      });
+      if (out.length) { S.found = out; renderStatus(); }
+      return this;
+    },
+    /* 地图分离：桌面壳开/关独立地图窗口后，用它通知界面切换样子。
+       view 属性告诉后端本窗口是什么角色（full/panel/map），便于只给需要的一方推地形。 */
+    setMapDetached: setMapDetached,
+    getState: function () {
+      return {
+        mode:S.mode, volume:S.vol, repeat:S.rep, dedupe:S.ddr, cooldown:S.cd,
+        only_rare:S.rare, distance_hint:S.dist, layer:S.layer, zoom:S.zoom,
+        running:S.running, source:S.source, enabled:Object.assign({}, S.enabled),
+        scanned:S.scanned, found:S.found.length, live:liveInfo.on,
+        view:VIEW, map_detached:mapDetached,
+        player:{ x:S.px, y:S.py, z:S.pz }
+      };
+    },
+    scan: doScan,
+    pause: pauseToggle,
+    pushAlert: function (o) {          // 后端发现遗迹时调用，界面立刻走一遍提醒
+      if (!o || !byId[o.type]) return false;
+      addHit(o.type, o.x, o.z, o.pure == null ? 0.95 : o.pure);
+      return true;
+    },
+    toast: toast,
+    setMode: setMode
+  };
+
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
+  else boot();
+})();
+</script>
+</body>
+</html>

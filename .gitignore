@@ -28,4 +28,30 @@ app/cache/server_path.auto.txt
 raw/
 ruins_img/
 /*.png
-=
+
+# ---- 独立前端操作台 paotu-alert-ui：构建产物 / 运行期数据 ----
+# build/ 是 PyInstaller 的中间目录（20 MB），dist/ 里的 exe 与便携 zip 也已被上面的 dist/ 挡掉
+paotu-alert-ui/build/
+# 桌面壳运行时在旁边建的 runtime/：日志 + WebView2 缓存（实测 41 MB）
+paotu-alert-ui/desktop/runtime/
+# 自检截图纯留档（README 只按文件名引用），体积 5~6 MB，不入库
+paotu-alert-ui/_qa/
+paotu-alert-ui/desktop/_qa/
+
+# ---- 模组编译中间产物 / 第三方依赖 jar（可再下载，不入库）----
+fishauto/build/
+fishauto/libs/
+_predcheck_jar/
+app/*/build/
+app/*/offline/out*/
+app/*/libs/
+
+# ---- 从游戏素材里截出来的调试图（版权原因不入库）----
+app/_img_bars/
+
+# ---- 同 mod id 只保留「当前版本」那一个 jar ----
+# 两个同 mod id 的 jar 会让 Fabric 拒绝加载整个模组（实测踩过）。
+# 升版本时记得把上一版加进这里，别让仓库里同时躺着两个。
+app/fishauto/fishauto-0.1.0.jar
+app/fishauto/fishauto-0.2.0.jar
+app/fishauto/fishauto-0.2.1.jar
